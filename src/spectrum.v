@@ -193,7 +193,7 @@ module Spectrum (
   // Chip selects
   // ===============================================================
 
-  assign n_ps2CS = cpuAddress[7:0] == 7'hfe && n_ioRD == 1'b0 ? 1'b0 : 1'b1;
+  assign n_ps2CS = cpuAddress[7:0] == 8'hfe && n_ioRD == 1'b0 ? 1'b0 : 1'b1;
   assign n_romCS = cpuAddress[15:14] != 0;
   assign n_ramCS = !n_romCS;
 
