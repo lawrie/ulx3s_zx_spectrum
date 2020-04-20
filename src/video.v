@@ -18,12 +18,14 @@ module video (
   parameter HFP = 16;
   parameter HBP = 48;
   parameter HT  = HA + HS + HFP + HBP;
+  parameter HB = 64;
 
   parameter VA = 480;
   parameter VS  = 2;
   parameter VFP = 11;
   parameter VBP = 31;
   parameter VT  = VA + VS + VFP + VBP;
+  parameter VB = 48;
 
   reg [9:0] hc = 0;
   reg [9:0] vc = 0;
@@ -40,13 +42,13 @@ module video (
   assign vga_vs = !(vc >= VA + VFP && vc < VA + VFP + VS);
   assign vga_de = !(hc > HA || vc > VA);
 
-  wire [7:0] x = (hc - 64) >> 1;
-  wire [7:0] y = (vc - 48) >> 1;
+  wire [7:0] x = (hc - HB) >> 1;
+  wire [7:0] y = (vc - VB) >> 1;
 
   assign vga_addr = {y[7:6], y[2:0], y[5:3], x[7:3]};
 
-  wire hBorder = (hc < 64 || hc >= HA - 64);
-  wire vBorder = (vc < 48 || vc >= VA - 48);
+  wire hBorder = (hc < HB || hc >= HA - HB);
+  wire vBorder = (vc < VB || vc >= VA - VB);
   wire border = hBorder || vBorder;
 
   wire red = 0;
