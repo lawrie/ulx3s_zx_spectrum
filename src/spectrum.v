@@ -4,12 +4,9 @@ module Spectrum (
   // Buttons
   input [6:0]   btn,
   // VGA
-  output        videoR0,
-  output        videoG0,
-  output        videoB0,
-  output        videoR1,
-  output        videoG1,
-  output        videoB1,
+  output [3:0]  red,
+  output [3:0]  green,
+  output [3:0]  blue,
   output        hSync,
   output        vSync,
   // HDMI
@@ -22,186 +19,224 @@ module Spectrum (
   inout         ps2Data,
   // Leds
   output [7:0]  leds,
-  output [15:0] diag
+  output reg [15:0] diag
 );
 
-   wire          n_WR;
-   wire          n_RD;
-   wire [15:0]   cpuAddress;
-   wire [7:0]    cpuDataOut;
-   wire [7:0]    cpuDataIn;
-   wire          n_memWR;
-   wire          n_memRD;
-   wire          n_ioWR;
-   wire          n_ioRD;
-   wire          n_MREQ;
-   wire          n_IORQ;
-   wire          n_romCS;
-   wire          n_ramCS;
+  wire          n_WR;
+  wire          n_RD;
+  wire [15:0]   cpuAddress;
+  wire [7:0]    cpuDataOut;
+  wire [7:0]    cpuDataIn;
+  wire          n_memWR;
+  wire          n_memRD;
+  wire          n_ioWR;
+  wire          n_ioRD;
+  wire          n_MREQ;
+  wire          n_IORQ;
+  wire          n_romCS;
+  wire          n_ramCS;
+  wire          n_ps2CS;
 
-   reg [5:0]     cpuClkCount = 0;
-   reg           cpuClock;
+  reg [5:0]     cpuClkCount = 0;
+  reg           cpuClock;
 
-   reg           ram8kWritten = 0;
+  reg           ram8kWritten = 0;
 
-   // ===============================================================
-   // System Clock generation
-   // ===============================================================
-   wire clk125, clk;
+  // ===============================================================
+  // System Clock generation
+  // ===============================================================
+  wire clk125, clk;
 
-   pll pll_i (
-     .clkin(clk25_mhz),
-     .clkout0(clk125),
-     .clkout1(clk)
-   );
+  pll pll_i (
+    .clkin(clk25_mhz),
+    .clkout0(clk125),
+    .clkout1(clk)
+  );
 
-   // ===============================================================
-   // Reset generation
-   // ===============================================================
-   reg [15:0] pwr_up_reset_counter = 0;
-   wire       pwr_up_reset_n = &pwr_up_reset_counter;
+  // ===============================================================
+  // Reset generation
+  // ===============================================================
+  reg [15:0] pwr_up_reset_counter = 0;
+  wire       pwr_up_reset_n = &pwr_up_reset_counter;
 
-   always @(posedge clk)
-     begin
-       if (!pwr_up_reset_n)
-         pwr_up_reset_counter <= pwr_up_reset_counter + 1;
-     end
+  always @(posedge clk) begin
+     if (!pwr_up_reset_n)
+       pwr_up_reset_counter <= pwr_up_reset_counter + 1;
+  end
 
-   wire n_hard_reset = pwr_up_reset_n & btn[0];
+  wire n_hard_reset = pwr_up_reset_n & btn[0];
 
-   // ===============================================================
-   // CPU
-   // ===============================================================
-   tv80n
-     #(
-       .Mode(1),
-       .T2Write(1),
-       .IOWait(0)
-       )
-   cpu1
-     (
-      .reset_n(n_hard_reset),
-      .clk(cpuClock),
-      .wait_n(1'b 1),
-      .int_n(1'b 1),
-      .nmi_n(1'b 1),
-      .busrq_n(1'b 1),
-      .mreq_n(n_MREQ),
-      .iorq_n(n_IORQ),
-      .rd_n(n_RD),
-      .wr_n(n_WR),
-      .A(cpuAddress),
-      .di(cpuDataIn),
-      .do(cpuDataOut));
+  // ===============================================================
+  // CPU
+  // ===============================================================
+  tv80n #(
+    .Mode(1),
+    .T2Write(1),
+    .IOWait(0)
+  ) cpu1 (
+    .reset_n(n_hard_reset),
+    .clk(cpuClock),
+    .wait_n(1'b1),
+    .int_n(1'b1),
+    .nmi_n(1'b1),
+    .busrq_n(1'b1),
+    .mreq_n(n_MREQ),
+    .iorq_n(n_IORQ),
+    .rd_n(n_RD),
+    .wr_n(n_WR),
+    .A(cpuAddress),
+    .di(cpuDataIn),
+    .do(cpuDataOut)
+  );
 
-   // ===============================================================
-   // ROM 
-   // ===============================================================
+  // ===============================================================
+  // ROM 
+  // ===============================================================
+  wire [7:0] romOut;
+
+  rom #(.MEM_INIT_FILE("../roms/spectrum48.mem"), .A_WIDTH(14)) rom16 (
+    .clk(clk),
+    .addr(cpuAddress[13:0]),
+    .dout(romOut)
+  );
+
+  // ===============================================================
+  // RAM
+  // ===============================================================
+  wire [7:0] ramOut;
+  wire [7:0] vidOut;
+  wire [12:0] vga_addr;
    
-   wire [7:0] romOut;
+  dpram ram48 (
+    .clk_a(cpuClock),
+    .we_a(!n_ramCS & !n_memWR),
+    .addr_a(cpuAddress - 16'h4000),
+    .din_a(cpuDataOut),
+    .dout_a(ramOut),
+    .clk_b(clk_vga),
+    .addr_b({3'b0, vga_addr}),
+    .dout_b(vidOut)
+  );
 
-   rom #(.MEM_INIT_FILE(""), .A_WIDTH(13)) rom16 (
+  // ===============================================================
+  // Keyboard
+  // ===============================================================
+  wire [4:0]  key_data;
+  wire [11:1] Fn;
+  wire [2:0]  mod;
+  wire [10:0] ps2_key;
+
+    // Get PS/2 keyboard events
+  ps2 ps2_kbd (
      .clk(clk),
-     .addr(cpuAddress[12:0]),
-     .dout(romOut)
-   );
+     .ps2_clk(ps2Clk),
+     .ps2_data(ps2Data),
+     .ps2_key(ps2_key)
+  );
 
-   // ===============================================================
-   // RAM
-   // ===============================================================
-   wire [7:0] ramOut;
-   
-   dpram ram48 (
-     .clk_a(clk),
-     .we_a(!n_ramCS & !n_memWR),
-     .addr_a(cpuAddress),
-     .din_a(cpuDataOut),
-     .dout_a(ramOut)
-   );
+  // Keyboard matrix
+  keyboard the_keyboard (
+    .reset(~n_hard_reset),
+    .clk_sys(clk),
+    .ps2_key(ps2_key),
+    .addr(cpuAddress),
+    .key_data(key_data),
+    .Fn(Fn),
+    .mod(mod)
+  );
 
-   // ===============================================================
-   // Keyboard
-   // ===============================================================
-   
-   // pull-ups for us2 connector 
-   assign usb_fpga_pu_dp = 1;
-   assign usb_fpga_pu_dn = 1;
+  // pull-ups for us2 connector 
+  assign usb_fpga_pu_dp = 1;
+  assign usb_fpga_pu_dn = 1;
 
-   // ===============================================================
-   // VGA
-   // ===============================================================
-   reg clk_vga = clk;
-   reg clk_hdmi = clk125;
+  // ===============================================================
+  // VGA
+  // ===============================================================
+  reg clk_vga = clk;
+  reg clk_hdmi = clk125;
+  wire vga_de;
 
-   wire vga_blank;
+  video vga (
+    .clk(clk_vga),
+    .vga_r(red),
+    .vga_g(green),
+    .vga_b(blue),
+    .vga_de(vga_de),
+    .vga_hs(hSync),
+    .vga_vs(vSync),
+    .vga_addr(vga_addr),
+    .vga_data(vidOut)
+  );
 
-   // Convert VGA to HDMI
-   HDMI_out vga2dvid (
-     .pixclk(clk_vga),
-     .pixclk_x5(clk_hdmi),
-     .red({videoR1, videoR0, 6'b0}),
-     .green({videoG1, videoG0, 6'b0}),
-     .blue({videoB1, videoB0, 6'b0}),
-     .vde(!vga_blank),
-     .hSync(hSync),
-     .vSync(vSync),
-     .gpdi_dp(gpdi_dp),
-     .gpdi_dn(gpdi_dn)
-   );
+  // Convert VGA to HDMI
+  HDMI_out vga2dvid (
+    .pixclk(clk_vga),
+    .pixclk_x5(clk_hdmi),
+    .red({red, 4'b0}),
+    .green({green, 4'b0}),
+    .blue({blue, 4'b0}),
+    .vde(vga_de),
+    .hSync(hSync),
+    .vSync(vSync),
+    .gpdi_dp(gpdi_dp),
+    .gpdi_dn(gpdi_dn)
+  );
 
-   // ===============================================================
-   // MEMORY READ/WRITE LOGIC
-   // ===============================================================
+  // ===============================================================
+  // MEMORY READ/WRITE LOGIC
+  // ===============================================================
 
-   assign n_ioWR = n_WR | n_IORQ;
-   assign n_memWR = n_WR | n_MREQ;
-   assign n_ioRD = n_RD | n_IORQ;
-   assign n_memRD = n_RD | n_MREQ;
+  assign n_ioWR = n_WR | n_IORQ;
+  assign n_memWR = n_WR | n_MREQ;
+  assign n_ioRD = n_RD | n_IORQ;
+  assign n_memRD = n_RD | n_MREQ;
 
-   // ===============================================================
-   // CHIP SELECTS
-   // ===============================================================
+  // ===============================================================
+  // Chip selects
+  // ===============================================================
 
-   assign n_romCS = cpuAddress[15:13] != 0;
-   assign n_ramCS = 1'b 0; // Always selected
+  assign n_ps2CS = cpuAddress[7:0] == 7'hfe && n_ioRD == 1'b0 ? 1'b0 : 1'b1;
+  assign n_romCS = cpuAddress[15:14] != 0;
+  assign n_ramCS = !n_romCS;
 
-   // ===============================================================
-   // Memory multiplexing
-   // ===============================================================
+  // ===============================================================
+  // Memory decoding
+  // ===============================================================
 
-   assign cpuDataIn =  n_romCS == 1'b 0 ? romOut              :
-                       n_ramCS == 1'b 0 ? ramOut              :
-                                          8'h FF;
+  assign cpuDataIn =  n_ps2CS == 1'b0 ? {3'b111, key_data} :
+                      n_romCS == 1'b0 ? romOut :
+                      n_ramCS == 1'b0 ? ramOut :
+		                        8'hff;
+ 
+  // ===============================================================
+  // CPU clock generation
+  // ===============================================================
+  always @(posedge clk) begin
+    if(cpuClkCount < 2) begin
+      cpuClkCount <= cpuClkCount + 1;
+    end else begin
+      cpuClkCount <= 0;
+    end
+    if(cpuClkCount < 1) begin
+      cpuClock <= 1'b0;
+    end else begin
+      cpuClock <= 1'b1;
+    end
+  end
 
-   // CPU clock generation
-   always @(posedge clk) begin
-      if(cpuClkCount < 2) begin
-         // 4 = 10MHz, 3 = 12.5MHz, 2=16.6MHz, 1=25MHz
-         cpuClkCount <= cpuClkCount + 1;
-      end
-      else begin
-         cpuClkCount <= {6{1'b0}};
-      end
-      if(cpuClkCount < 1) begin
-         // 2 when 10MHz, 2 when 12.5MHz, 2 when 16.6MHz, 1 when 25MHz
-         cpuClock <= 1'b 0;
-      end
-      else begin
-         cpuClock <= 1'b 1;
-      end
-   end
+  // ===============================================================
+  // Leds
+  // ===============================================================
+  wire led1 = !n_ps2CS;
+  wire led2 = !n_ramCS;
+  wire led3 = n_WR;
+  wire led4 = !n_hard_reset;
 
-   // ===============================================================
-   // Leds
-   // ===============================================================
-
-   wire led1 = 0;
-   wire led2 = 0;
-   wire led3 = n_WR;
-   wire led4 = !n_hard_reset;
-
-   assign leds = {4'b0, led4, led3, led2, led1};
-   assign diag = cpuAddress;
+  assign leds = {4'b0, led4, led3, led2, led1};
+  
+  always @(posedge clk) begin
+    diag <= {key_data, ps2_key};
+  end
    
 endmodule
 
