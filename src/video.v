@@ -52,7 +52,7 @@ module video (
   wire border = hBorder || vBorder;
 
   wire red = 0;
-  wire green = !border && vga_data[x[2:0]];
+  wire green = !border && vga_data[~x[2:0]];
   wire blue = border;
 
   assign vga_r = !vga_de ? 4'b0 : {4{red}};
