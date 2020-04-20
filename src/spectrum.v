@@ -40,8 +40,6 @@ module Spectrum (
   reg [5:0]     cpuClkCount = 0;
   reg           cpuClock;
 
-  reg           ram8kWritten = 0;
-
   // ===============================================================
   // System Clock generation
   // ===============================================================
@@ -152,8 +150,8 @@ module Spectrum (
   // ===============================================================
   // VGA
   // ===============================================================
-  reg clk_vga = clk;
-  reg clk_hdmi = clk125;
+  wire clk_vga = clk;
+  wire clk_hdmi = clk125;
   wire vga_de;
 
   video vga (
@@ -212,12 +210,12 @@ module Spectrum (
   // CPU clock generation
   // ===============================================================
   always @(posedge clk) begin
-    if(cpuClkCount < 2) begin
+    if(cpuClkCount < 4) begin
       cpuClkCount <= cpuClkCount + 1;
     end else begin
       cpuClkCount <= 0;
     end
-    if(cpuClkCount < 1) begin
+    if(cpuClkCount < 2) begin
       cpuClock <= 1'b0;
     end else begin
       cpuClock <= 1'b1;
