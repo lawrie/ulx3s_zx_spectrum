@@ -17,6 +17,8 @@ module Spectrum (
   output        usb_fpga_pu_dn,
   inout         ps2Clk,
   inout         ps2Data,
+  // Interrupt test
+  output        interrupt,
   // Leds
   output [7:0]  leds,
   output reg [15:0] diag
@@ -24,6 +26,7 @@ module Spectrum (
 
   wire          n_WR;
   wire          n_RD;
+  wire          n_INT;
   wire [15:0]   cpuAddress;
   wire [7:0]    cpuDataOut;
   wire [7:0]    cpuDataIn;
@@ -35,10 +38,12 @@ module Spectrum (
   wire          n_IORQ;
   wire          n_romCS;
   wire          n_ramCS;
-  wire          n_ps2CS;
+  wire          n_kbdCS;
 
   reg [5:0]     cpuClkCount = 0;
   reg           cpuClock;
+
+  assign interrupt = !n_INT;
 
   // ===============================================================
   // System Clock generation
@@ -67,11 +72,13 @@ module Spectrum (
   // ===============================================================
   // CPU
   // ===============================================================
+  wire [15:0] pc;
+
   tv80n cpu1 (
     .reset_n(n_hard_reset),
     .clk(cpuClock),
     .wait_n(1'b1),
-    .int_n(1'b1),
+    .int_n(n_INT),
     .nmi_n(1'b1),
     .busrq_n(1'b1),
     .mreq_n(n_MREQ),
@@ -80,7 +87,8 @@ module Spectrum (
     .wr_n(n_WR),
     .A(cpuAddress),
     .di(cpuDataIn),
-    .do(cpuDataOut)
+    .do(cpuDataOut),
+    .pc(pc)
   );
 
   // ===============================================================
@@ -102,7 +110,7 @@ module Spectrum (
   wire [12:0] vga_addr;
    
   dpram ram48 (
-    .clk_a(cpuClock),
+    .clk_a(clk),
     .we_a(!n_ramCS & !n_memWR),
     .addr_a(cpuAddress - 16'h4000),
     .din_a(cpuDataOut),
@@ -159,7 +167,8 @@ module Spectrum (
     .vga_hs(hSync),
     .vga_vs(vSync),
     .vga_addr(vga_addr),
-    .vga_data(vidOut)
+    .vga_data(vidOut),
+    .n_int(n_INT)
   );
 
   // Convert VGA to HDMI
@@ -189,7 +198,7 @@ module Spectrum (
   // Chip selects
   // ===============================================================
 
-  assign n_ps2CS = cpuAddress[7:0] == 8'hfe && n_ioRD == 1'b0 ? 1'b0 : 1'b1;
+  assign n_kbdCS = (cpuAddress[0] | n_ioRD) == 1'b0 ? 1'b0 : 1'b1;
   assign n_romCS = cpuAddress[15:14] != 0;
   assign n_ramCS = !n_romCS;
 
@@ -197,7 +206,7 @@ module Spectrum (
   // Memory decoding
   // ===============================================================
 
-  assign cpuDataIn =  n_ps2CS == 1'b0 ? {3'b111, key_data} :
+  assign cpuDataIn =  n_kbdCS == 1'b0 ? {3'b111, key_data} :
                       n_romCS == 1'b0 ? romOut :
                       n_ramCS == 1'b0 ? ramOut :
 		                        8'hff;
@@ -221,9 +230,9 @@ module Spectrum (
   // ===============================================================
   // Leds
   // ===============================================================
-  wire led1 = !n_ps2CS;
-  wire led2 = !n_ramCS;
-  wire led3 = n_WR;
+  wire led1 = !n_kbdCS;
+  wire led2 = !n_INT;
+  wire led3 = !n_WR;
   wire led4 = !n_hard_reset;
 
   assign leds = {4'b0, led4, led3, led2, led1};

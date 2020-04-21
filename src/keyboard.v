@@ -72,7 +72,7 @@ reg old_reset = 0;
 always @(posedge clk_sys) begin
 	old_reset <= reset;
 
-	if (old_reset != reset || (ps2_key[10] && ~ps2_key[9])) begin
+	if (old_reset != reset) begin
 		keys[0] <= 5'b11111;
 		keys[1] <= 5'b11111;
 		keys[2] <= 5'b11111;
@@ -84,10 +84,8 @@ always @(posedge clk_sys) begin
 	end
 
 	if(input_strobe) begin
-		if (shift) keys[0][0] <= 0;
 		case(code)
-			//8'h59, 8'h12: mod[0]<= ~release_btn; // left-right shift
-			8'h59, 8'h12: mod[0]<= ~mod[0]; // left-right shift
+			8'h59: mod[0]<= ~release_btn; // right shift
 			8'h11: mod[1]<= ~release_btn; // alt
 			8'h14: mod[2]<= ~release_btn; // ctrl
 			8'h05: Fn[1] <= ~release_btn; // F1
@@ -222,9 +220,9 @@ always @(posedge clk_sys) begin
 	old_state <= ps2_key[10];
 
 	if(ps2_key[10]) begin
-		release_btn <= ~ps2_key[9];
+		release_btn <= ps2_key[9];
 		code <= ps2_key[7:0];
-		if (ps2_key[9]) input_strobe <= 1;
+		input_strobe <= 1;
 	end
 end
 
