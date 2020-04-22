@@ -10,6 +10,8 @@ module video (
   output        vga_de,
   input  [7:0]  vga_data,
   output [12:0] vga_addr,
+  input  [7:0]  attr_data,
+  output [12:0] attr_addr,
   output        n_int
 );
 
@@ -53,18 +55,36 @@ module video (
   wire [7:0] y = (vc - VB) >> 1;
 
   assign vga_addr = {y[7:6], y[2:0], y[5:3], x[7:3]};
+  assign attr_addr = 13'h1800 + {3'b0, y[7:3], x[7:3]};
 
   wire hBorder = (hc < HB || hc >= HA - HB);
   wire vBorder = (vc < VB || vc >= VA - VB);
   wire border = hBorder || vBorder;
 
-  wire red = 0;
-  wire green = !border && vga_data[~x[2:0]];
-  wire blue = border;
+  wire [2:0] ink = attr_data[2:0];
+  wire [2:0] paper = attr_data[5:3];
+  wire bright = attr_data[6];
+  wire flash = attr_data[7];
 
-  assign vga_r = !vga_de ? 4'b0 : {4{red}};
-  assign vga_g = !vga_de ? 4'b0 : {4{green}};
-  assign vga_b = !vga_de ? 4'b0 : {4{blue}};
+  wire ink_red = ink[1];
+  wire ink_green = ink[2];
+  wire ink_blue = ink[0];
+
+  wire paper_red = paper[1];
+  wire paper_green = paper[2];
+  wire paper_blue = paper[0];
+
+  wire pixel = vga_data[~x[2:0]];
+
+  reg [2:0] border_color = 3'b111;
+
+  wire red = border ? border_color[1] : pixel ? ink_red : paper_red;
+  wire green = border ? border_color[2] : pixel ? ink_green : paper_green;
+  wire blue = border ? border_color[0] : pixel ? ink_blue : paper_blue;
+
+  assign vga_r = !vga_de ? 4'b0 : {bright, {3{red}}};
+  assign vga_g = !vga_de ? 4'b0 : {bright, {3{green}}};
+  assign vga_b = !vga_de ? 4'b0 : {bright, {3{blue}}};
 
 endmodule
 

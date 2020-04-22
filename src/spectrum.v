@@ -109,7 +109,9 @@ module Spectrum (
   wire [7:0] ramOut;
   wire [7:0] vidOut;
   wire [12:0] vga_addr;
-   
+  wire [7:0] attrOut;
+  wire [12:0] attr_addr;
+
   dpram ram48 (
     .clk_a(cpuClock),
     .we_a(!n_ramCS & !n_memWR),
@@ -118,7 +120,10 @@ module Spectrum (
     .dout_a(ramOut),
     .clk_b(clk_vga),
     .addr_b({3'b0, vga_addr}),
-    .dout_b(vidOut)
+    .dout_b(vidOut),
+    .clk_c(clk_vga),
+    .addr_c({3'b0, attr_addr}),
+    .dout_c(attrOut)
   );
 
   // ===============================================================
@@ -169,6 +174,8 @@ module Spectrum (
     .vga_vs(vSync),
     .vga_addr(vga_addr),
     .vga_data(vidOut),
+    .attr_addr(attr_addr),
+    .attr_data(attrOut),
     .n_int(n_INT)
   );
 
@@ -233,7 +240,8 @@ module Spectrum (
   assign leds = {4'b0, led4, led3, led2, led1};
   
   always @(posedge clk) begin
-    diag <= {mod, 2'b0, ps2_key};
+    //diag <= {mod, 2'b0, ps2_key};
+    diag <= attrOut;
   end
    
 endmodule
