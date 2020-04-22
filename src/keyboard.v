@@ -72,7 +72,7 @@ reg old_reset = 0;
 always @(posedge clk_sys) begin
 	old_reset <= reset;
 
-	if (old_reset != reset) begin
+	if (~old_reset & reset) begin
 		keys[0] <= 5'b11111;
 		keys[1] <= 5'b11111;
 		keys[2] <= 5'b11111;
@@ -85,6 +85,7 @@ always @(posedge clk_sys) begin
 
 	if(input_strobe) begin
 		case(code)
+			8'h12: mod[0]<= ~release_btn; // left shift
 			8'h59: mod[0]<= ~release_btn; // right shift
 			8'h11: mod[1]<= ~release_btn; // alt
 			8'h14: mod[2]<= ~release_btn; // ctrl
@@ -146,7 +147,7 @@ always @(posedge clk_sys) begin
 			8'h33 : keys[6][4] <= release_btn; // H
 
 			8'h29 : keys[7][0] <= release_btn; // SPACE
-			8'h49 : keys[7][1] <= release_btn; // .
+			8'h14 : keys[7][1] <= release_btn; // CTRL (Symbol shift)
 			8'h3a : keys[7][2] <= release_btn; // M
 			8'h31 : keys[7][3] <= release_btn; // N
 			8'h32 : keys[7][4] <= release_btn; // B
@@ -177,47 +178,72 @@ always @(posedge clk_sys) begin
 					keys[0][0] <= release_btn;
 					keys[4][0] <= release_btn;
 				end
+			8'h58 : begin // Caps lock (CAPS 2)
+					keys[0][0] <= release_btn;
+					keys[3][1] <= release_btn;
+				end
 			8'h76 : begin // Escape (CAPS SPACE)
 					keys[0][0] <= release_btn;
 					keys[7][0] <= release_btn;
 				end
-			8'h41 : begin // ,
-					keys[0][0] <= release_btn;
-					keys[7][1] <= release_btn |  shift;
+			8'h49 : begin // . <
+                                        keys[7][1] <= release_btn;
+                                        keys[2][4] <= release_btn | ~shift;
+                                        keys[7][2] <= release_btn |  shift;
+                                end
+			8'h41 : begin // , >
+					keys[7][1] <= release_btn;
+					keys[2][3] <= release_btn | ~shift;
+					keys[7][3] <= release_btn |  shift;
 				end
 			8'h4A : begin // / ?
-					keys[0][0] <= release_btn;
+					keys[7][1] <= release_btn;
 					keys[0][3] <= release_btn | ~shift;
 					keys[0][4] <= release_btn |  shift;
 				end
 			8'h4C : begin // ; :
-					keys[0][0] <= release_btn;
+					keys[7][1] <= release_btn;
 					keys[0][1] <= release_btn | ~shift;
-					keys[0][2] <= release_btn |  shift;
+					keys[5][1] <= release_btn |  shift;
 				end
-			8'h52 : begin // "
-					keys[0][0] <= release_btn;
-					keys[5][4] <= release_btn | shift;
+			8'h52 : begin // " '
+					keys[7][1] <= release_btn;
+					keys[4][3] <= release_btn | ~shift;
+					keys[5][0] <= release_btn |  shift;
 				end
-			8'h4E : begin // -
-					keys[0][0] <= release_btn;
+			8'h54 : begin // (
+					keys[7][1] <= release_btn;
+					keys[4][2] <= release_btn;
+				end
+			8'h5B : begin // )
+					keys[7][1] <= release_btn;
+					keys[4][1] <= release_btn;
+				end
+			8'h4E : begin // - _
+					keys[7][1] <= release_btn;
+					keys[4][0] <= release_btn | ~shift;
 					keys[6][3] <= release_btn |  shift;
 				end
 			8'h55 : begin // = +
-					keys[0][0] <= release_btn;
+					keys[7][1] <= release_btn;
 					keys[6][2] <= release_btn | ~shift;
 					keys[6][1] <= release_btn |  shift;
+				end
+			8'h0E : begin // '
+					keys[7][1] <= release_btn;
+					keys[4][3] <= release_btn;
+				end
+			8'h5D : begin // *
+					keys[7][1] <= release_btn;
+					keys[7][4] <= release_btn;
 				end
 			default: ;
 		endcase
 	end
 end
 
-reg old_state;
-
 always @(posedge clk_sys) begin
 	input_strobe <= 0;
-	old_state <= ps2_key[10];
 
 	if(ps2_key[10]) begin
 		release_btn <= ps2_key[9];

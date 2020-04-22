@@ -238,7 +238,7 @@ module Spectrum (
   assign leds = {4'b0, led4, led3, led2, led1};
   
   always @(posedge clk) begin
-    diag <= {key_data, ps2_key};
+    diag <= {mod, 2'b0, ps2_key};
   end
    
 endmodule
