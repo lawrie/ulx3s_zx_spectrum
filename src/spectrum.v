@@ -40,8 +40,9 @@ module Spectrum (
   wire          n_ramCS;
   wire          n_kbdCS;
 
-  reg [5:0]     cpuClkCount = 0;
-  reg           cpuClock;
+  reg [2:0]     cpuClockCount;
+  wire          cpuClock;
+  wire          cpuClockEnable;
 
   assign interrupt = !n_INT;
 
@@ -53,7 +54,8 @@ module Spectrum (
   pll pll_i (
     .clkin(clk25_mhz),
     .clkout0(clk125),
-    .clkout1(clk)
+    .clkout1(clk),
+    .clkout2(cpuClock)
   );
 
   // ===============================================================
@@ -76,14 +78,13 @@ module Spectrum (
 
   tv80n cpu1 (
     .reset_n(n_hard_reset),
-    .clk(cpuClock),
+    .clk(cpuClockEnable),
     .wait_n(1'b1),
     .int_n(n_INT),
     .nmi_n(1'b1),
     .busrq_n(1'b1),
     .mreq_n(n_MREQ),
     .iorq_n(n_IORQ),
-    .rd_n(n_RD),
     .wr_n(n_WR),
     .A(cpuAddress),
     .di(cpuDataIn),
@@ -110,7 +111,7 @@ module Spectrum (
   wire [12:0] vga_addr;
    
   dpram ram48 (
-    .clk_a(clk),
+    .clk_a(cpuClock),
     .we_a(!n_ramCS & !n_memWR),
     .addr_a(cpuAddress - 16'h4000),
     .din_a(cpuDataOut),
@@ -210,22 +211,16 @@ module Spectrum (
                       n_romCS == 1'b0 ? romOut :
                       n_ramCS == 1'b0 ? ramOut :
 		                        8'hff;
- 
+
   // ===============================================================
-  // CPU clock generation
+  // CPU clock enable
   // ===============================================================
-  always @(posedge clk) begin
-    if(cpuClkCount < 4) begin
-      cpuClkCount <= cpuClkCount + 1;
-    end else begin
-      cpuClkCount <= 0;
-    end
-    if(cpuClkCount < 2) begin
-      cpuClock <= 1'b0;
-    end else begin
-      cpuClock <= 1'b1;
-    end
+   
+  always @(posedge cpuClock) begin
+    cpuClockCount <= cpuClockCount + 1;
   end
+
+  assign cpuClockEnable = cpuClockCount[2]; // 3.5Mhz
 
   // ===============================================================
   // Leds
