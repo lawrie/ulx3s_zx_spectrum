@@ -76,6 +76,30 @@ def save(filename, addr=0, length=1024):
   s.save_stream(f, addr, length)
   f.close()
 
+def ctrl(i):
+  s=spiram()
+  s.led.on()
+  s.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF, i]))
+  s.led.off()
+  
+def peek(addr,length):
+  s=spiram()
+  s.led.on()
+  addr -= 0x4000
+  s.hwspi.write(bytearray([0x01,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0x00]))
+  b=bytearray(length)
+  s.hwspi.readinto(b)
+  s.led.off()
+  print(b)
+
+def poke(addr,data):
+  s=spiram()
+  s.led.on()
+  addr -= 0x4000
+  s.hwspi.write(bytearray([0x00,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
+  s.hwspi.write(data)
+  s.led.off()
+
 def help():
   print("spiram.load(\"file.bin\",addr=0)")
   print("spiram.save(\"file.bin\",addr=0,length=1024)")

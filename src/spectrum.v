@@ -17,7 +17,11 @@ module Spectrum (
   output        usb_fpga_pu_dn,
   inout         ps2Clk,
   inout         ps2Data,
-  // SPI from ESP32
+  // ESP32 passthru
+  input         ftdi_txd,
+  output        ftdi_rxd,
+  input         wifi_txd,
+  output        wifi_rxd,  // SPI from ESP32
   input         wifi_gpio16,
   input         wifi_gpio5,
   inout [2:1]   sd_dat,
@@ -50,6 +54,10 @@ module Spectrum (
 
   assign interrupt = !n_INT;
 
+  // passthru to ESP32 micropython serial console
+  assign wifi_rxd = ftdi_txd;
+  assign ftdi_rxd = wifi_txd;
+
   // ===============================================================
   // System Clock generation
   // ===============================================================
@@ -79,6 +87,9 @@ module Spectrum (
   // CPU
   // ===============================================================
   wire [15:0] pc;
+  
+  reg [7:0] R_cpu_control;
+  wire loading = R_cpu_control[1];
 
   tv80n cpu1 (
     .reset_n(n_hard_reset),
@@ -100,13 +111,11 @@ module Spectrum (
   // SPI Slave
   // ===============================================================
  
-  wire spi_ram_wr;
+  wire spi_ram_wr, spi_ram_rd;
   wire [31:0] spi_ram_addr;
   wire [7:0] spi_ram_di;
+  wire [7:0] ramOut;
   wire [7:0] spi_ram_do = ramOut;
-
-  reg [7:0] R_cpu_control;
-  wire loading = R_cpu_control[1];
 
   spirw_slave_v
   #(
@@ -115,18 +124,19 @@ module Spectrum (
   )
   spirw_slave_v_inst
   (
-    .clk(clk),
+    .clk(cpuClock),
     .csn(~wifi_gpio5),
     .sclk(wifi_gpio16),
     .mosi(sd_dat[1]), // wifi_gpio4
     .miso(sd_dat[2]), // wifi_gpio12
     .wr(spi_ram_wr),
+    .rd(spi_ram_rd),
     .addr(spi_ram_addr),
     .data_in(spi_ram_do),
     .data_out(spi_ram_di)
   );
 
-  always @(posedge clk) begin
+  always @(posedge cpuClock) begin
     if (spi_ram_wr && spi_ram_addr[31:24] == 8'hFF) begin
       R_cpu_control <= spi_ram_di;
     end
@@ -146,7 +156,6 @@ module Spectrum (
   // ===============================================================
   // RAM
   // ===============================================================
-  wire [7:0] ramOut;
   wire [7:0] vidOut;
   wire [12:0] vga_addr;
   wire [7:0] attrOut;
@@ -154,8 +163,8 @@ module Spectrum (
 
   dpram ram48 (
     .clk_a(cpuClock),
-    .we_a(loading ? spi_ram_wr  && spi_ram_addr <= 32'h0000bfff : !n_ramCS & !n_memWR),
-    .addr_a(loading ? spi_ram_addr : cpuAddress - 16'h4000),
+    .we_a(loading ? spi_ram_wr  && spi_ram_addr[31:24] == 8'h00 : !n_ramCS & !n_memWR),
+    .addr_a(loading ? spi_ram_addr[15:0] : cpuAddress - 16'h4000),
     .din_a(loading ? spi_ram_di : cpuDataOut),
     .dout_a(ramOut),
     .clk_b(clk_vga),
@@ -272,8 +281,8 @@ module Spectrum (
   // ===============================================================
   // Leds
   // ===============================================================
-  wire led1 = !n_kbdCS;
-  wire led2 = !n_INT;
+  wire led1 = spi_ram_rd;
+  wire led2 = spi_ram_wr;
   wire led3 = loading;
   wire led4 = !n_hard_reset;
 
