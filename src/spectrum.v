@@ -17,6 +17,10 @@ module Spectrum (
   output        usb_fpga_pu_dn,
   inout         ps2Clk,
   inout         ps2Data,
+  // SPI from ESP32
+  input         wifi_gpio16,
+  input         wifi_gpio5,
+  inout [2:1]   sd_dat,
   // Interrupt test
   output        interrupt,
   // Leds
@@ -92,6 +96,32 @@ module Spectrum (
     .pc(pc)
   );
 
+  // ===============================================================
+  // SPI Slave
+  // ===============================================================
+ 
+  wire spi_ram_wr;
+  wire [31:0] spi_ram_addr;
+  wire [7:0] spi_ram_do, spi_ram_di;
+
+  spirw_slave_v
+  #(
+    .c_sclk_capable_pin(1'b0),
+    .c_addr_bits(32)
+  )
+  spirw_slave_v_inst
+  (
+    .clk(clk),
+    .csn(~wifi_gpio5),
+    .sclk(wifi_gpio16),
+    .mosi(sd_dat[1]), // wifi_gpio4
+    .miso(sd_dat[2]), // wifi_gpio12
+    .wr(spi_ram_wr),
+    .addr(spi_ram_addr),
+    .data_in(spi_ram_do),
+    .data_out(spi_ram_di)
+  );
+ 
   // ===============================================================
   // ROM 
   // ===============================================================
