@@ -82,7 +82,7 @@ module Spectrum (
 
   tv80n cpu1 (
     .reset_n(n_hard_reset),
-    .clk(cpuClockEnable),
+    .clk(loading ? 1'b0 : cpuClockEnable),
     .wait_n(1'b1),
     .int_n(n_INT),
     .nmi_n(1'b1),
@@ -103,6 +103,7 @@ module Spectrum (
   wire spi_ram_wr;
   wire [31:0] spi_ram_addr;
   wire [7:0] spi_ram_do, spi_ram_di;
+  reg loading = 0;
 
   spirw_slave_v
   #(
@@ -121,7 +122,12 @@ module Spectrum (
     .data_in(spi_ram_do),
     .data_out(spi_ram_di)
   );
- 
+
+  always @(posedge clk) begin
+    if (spi_ram_addr == 32'h80000000) loading <= 1;
+    else if (spi_ram_addr == 32'h40000000) loading <= 0;
+  end
+
   // ===============================================================
   // ROM 
   // ===============================================================
@@ -144,9 +150,9 @@ module Spectrum (
 
   dpram ram48 (
     .clk_a(cpuClock),
-    .we_a(!n_ramCS & !n_memWR),
-    .addr_a(cpuAddress - 16'h4000),
-    .din_a(cpuDataOut),
+    .we_a(loading ? spi_ram_wr  && spi_ram_addr <= 32'h0000bfff : !n_ramCS & !n_memWR),
+    .addr_a(loading ? spi_ram_addr : cpuAddress - 16'h4000),
+    .din_a(loading ? spi_ram_di : cpuDataOut),
     .dout_a(ramOut),
     .clk_b(clk_vga),
     .addr_b({3'b0, vga_addr}),
