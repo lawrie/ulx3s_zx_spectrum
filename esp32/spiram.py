@@ -29,8 +29,10 @@ class spiram:
     block = bytearray(blocksize)
     self.led.on()
     # Halt the CPU
-    self.hwspi.write(bytearray([0x02, 0xFF, 0xFF, 0xFF, 0xFF]))
+    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x02]))
+    self.led.off()
     # Request load
+    self.led.on()
     self.hwspi.write(bytearray([0x00,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
     while True:
       if filedata.readinto(block):
@@ -38,7 +40,9 @@ class spiram:
       else:
         break
     # Restart the CPU
-    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF]))
+    self.led.off()
+    self.led.on()
+    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00]))
     self.led.off()
 
   # read from SPI RAM -> write to file
@@ -47,15 +51,19 @@ class spiram:
     block = bytearray(blocksize)
     self.led.on()
     # Halt the CPU
-    self.hwspi.write(bytearray([0x02, 0xFF, 0xFF, 0xFF, 0xFF]))
+    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x02]))
+    self.led.off()
     # Request save
+    self.led.on()
     self.hwspi.write(bytearray([0x01,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0x00]))
     while bytes_saved < length:
       self.hwspi.readinto(block)
       filedata.write(block)
       bytes_saved += len(block)
+    self.led.off()
+    self.led.on()
     # Restart the CPU
-    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF]))
+    self.hwspi.write(bytearray([0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0x00]))
     self.led.off()
 
 def load(filename, addr=0):
