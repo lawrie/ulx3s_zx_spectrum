@@ -103,7 +103,8 @@ module Spectrum (
   wire spi_ram_wr;
   wire [31:0] spi_ram_addr;
   wire [7:0] spi_ram_do, spi_ram_di;
-  reg loading = 0;
+  reg [7:0] R_cpu_control;
+  wire loading = R_cpu_control[1];
 
   spirw_slave_v
   #(
@@ -124,8 +125,9 @@ module Spectrum (
   );
 
   always @(posedge clk) begin
-    if (spi_ram_addr == 32'h80000000) loading <= 1;
-    else if (spi_ram_addr == 32'h40000000) loading <= 0;
+    if (spi_ram_wr && spi_ram_addr[31:24] == 8'hFF) begin
+      R_cpu_control <= spi_ram_di;
+    end
   end
 
   // ===============================================================
@@ -270,7 +272,7 @@ module Spectrum (
   // ===============================================================
   wire led1 = !n_kbdCS;
   wire led2 = !n_INT;
-  wire led3 = !n_WR;
+  wire led3 = loading;
   wire led4 = !n_hard_reset;
 
   assign leds = {4'b0, led4, led3, led2, led1};
