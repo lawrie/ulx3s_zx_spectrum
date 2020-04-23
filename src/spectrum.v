@@ -102,7 +102,9 @@ module Spectrum (
  
   wire spi_ram_wr;
   wire [31:0] spi_ram_addr;
-  wire [7:0] spi_ram_do, spi_ram_di;
+  wire [7:0] spi_ram_di;
+  wire [7:0] spi_ram_do = ramOut;
+
   reg [7:0] R_cpu_control;
   wire loading = R_cpu_control[1];
 
