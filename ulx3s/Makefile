@@ -1,4 +1,4 @@
-VERILOG = ../src/spectrum.v ../src/dpram.v ../src/rom.v ../src/keyboard.v \
+VERILOG = ../src/spectrum.v ../src/dpram.v ../src/keyboard.v \
 	  ../src/Z80/tv80_core.v ../src/Z80/tv80n.v ../src/Z80/tv80_mcode.v \
 	  ../src/Z80/tv80_reg.v ../src/Z80/tv80_alu.v \
 	  ../src/spirw_slave_v.v \
