@@ -103,7 +103,7 @@ class spiram:
 
   def load_z80_v1_compressed_block(self, filedata):
     self.led.on()
-    self.hwspi.write(bytearray([0,0,0,0,0]))
+    self.hwspi.write(bytearray([0,0,0,0x40,0])) # from 0x4000
     self.load_z80_compressed_stream(filedata)
     self.led.off()
 
@@ -130,7 +130,6 @@ class spiram:
     if compress:
       # Request load
       self.led.on()
-      addr-=0x4000
       self.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
       self.load_z80_compressed_stream(filedata,length)
       self.led.off()
@@ -179,14 +178,12 @@ def loadz80(filename):
 
 def load(filename, addr=0x4000):
   s=spiram()
-  addr -= 0x4000
   s.cpu_halt()
   s.load_stream(open(filename, "rb"), addr=addr)
   s.cpu_continue()
 
 def save(filename, addr=0x4000, length=0xC000):
   s=spiram()
-  addr -= 0x4000
   f=open(filename, "wb")
   s.cpu_halt()
   s.save_stream(f, addr, length)
@@ -203,7 +200,6 @@ def peek(addr,length=1):
   s=spiram()
   s.cpu_halt()
   s.led.on()
-  addr -= 0x4000
   s.hwspi.write(bytearray([1,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0]))
   b=bytearray(length)
   s.hwspi.readinto(b)
@@ -215,7 +211,6 @@ def poke(addr,data):
   s=spiram()
   s.cpu_halt()
   s.led.on()
-  addr -= 0x4000
   s.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
   s.hwspi.write(data)
   s.led.off()
