@@ -82,8 +82,6 @@ module Spectrum (
        pwr_up_reset_counter <= pwr_up_reset_counter + 1;
   end
 
-  wire n_hard_reset = pwr_up_reset_n & btn[0];
-
   // ===============================================================
   // CPU
   // ===============================================================
@@ -91,6 +89,8 @@ module Spectrum (
   
   reg [7:0] R_cpu_control;
   wire loading = R_cpu_control[1];
+
+  wire n_hard_reset = pwr_up_reset_n & btn[0] & ~R_cpu_control[0];
 
   tv80n cpu1 (
     .reset_n(n_hard_reset),
