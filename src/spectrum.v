@@ -25,8 +25,6 @@ module Spectrum (
   input         wifi_gpio16,
   input         wifi_gpio5,
   inout [2:1]   sd_dat,
-  // Interrupt test
-  output        interrupt,
   // Leds
   output [7:0]  leds,
   output reg [15:0] diag
@@ -44,15 +42,18 @@ module Spectrum (
   wire          n_ioRD;
   wire          n_MREQ;
   wire          n_IORQ;
+  wire          n_M1;
   wire          n_romCS;
   wire          n_ramCS;
   wire          n_kbdCS;
+  
+  reg [2:0]     border_color;
+  wire          ula_we = ~cpuAddress[0] & ~n_IORQ & ~n_WR & n_M1;
+  reg           old_ula_we;
 
   reg [2:0]     cpuClockCount;
   wire          cpuClock;
   wire          cpuClockEnable;
-
-  assign interrupt = !n_INT;
 
   // passthru to ESP32 micropython serial console
   assign wifi_rxd = ftdi_txd;
@@ -100,6 +101,7 @@ module Spectrum (
     .nmi_n(1'b1),
     .busrq_n(1'b1),
     .mreq_n(n_MREQ),
+    .m1_n(n_M1),
     .iorq_n(n_IORQ),
     .wr_n(n_WR),
     .A(cpuAddress),
@@ -144,17 +146,16 @@ module Spectrum (
   end
 
   // ===============================================================
-  // ROM 
+  // Border color
   // ===============================================================
-  /*
-  wire [7:0] romOut;
 
-  rom #(.MEM_INIT_FILE("../roms/spectrum48.mem"), .A_WIDTH(14)) rom16 (
-    .clk(clk),
-    .addr(cpuAddress[13:0]),
-    .dout(romOut)
-  );
-  */
+  always @(posedge cpuClock) begin
+    old_ula_we <= ula_we;
+
+    if (ula_we && !old_ula_we) begin
+      border_color <= cpuDataOut[2:0];
+    end
+  end
 
   // ===============================================================
   // RAM
@@ -232,7 +233,8 @@ module Spectrum (
     .vga_data(vidOut),
     .attr_addr(attr_addr),
     .attr_data(attrOut),
-    .n_int(n_INT)
+    .n_int(n_INT),
+    .border_color(border_color)
   );
 
   // Convert VGA to HDMI
@@ -294,10 +296,9 @@ module Spectrum (
   wire led3 = loading;
   wire led4 = !n_hard_reset;
 
-  assign leds = {4'b0, led4, led3, led2, led1};
+  assign leds = {border_color, 1'b0 , led4, led3, led2, led1};
   
   always @(posedge clk) begin
-    //diag <= {mod, 2'b0, ps2_key};
     diag <= attrOut;
   end
    

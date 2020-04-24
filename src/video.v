@@ -12,7 +12,8 @@ module video (
   output [12:0] vga_addr,
   input  [7:0]  attr_data,
   output [12:0] attr_addr,
-  output        n_int
+  output        n_int,
+  input  [2:0]  border_color
 );
 
   parameter HA = 640;
@@ -75,8 +76,6 @@ module video (
   wire paper_blue = paper[0];
 
   wire pixel = vga_data[~x[2:0]];
-
-  reg [2:0] border_color = 3'b111;
 
   wire red = border ? border_color[1] : pixel ? ink_red : paper_red;
   wire green = border ? border_color[2] : pixel ? ink_green : paper_green;
