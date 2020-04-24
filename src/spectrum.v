@@ -146,6 +146,7 @@ module Spectrum (
   // ===============================================================
   // ROM 
   // ===============================================================
+  /*
   wire [7:0] romOut;
 
   rom #(.MEM_INIT_FILE("../roms/spectrum48.mem"), .A_WIDTH(14)) rom16 (
@@ -153,6 +154,7 @@ module Spectrum (
     .addr(cpuAddress[13:0]),
     .dout(romOut)
   );
+  */
 
   // ===============================================================
   // RAM
@@ -162,17 +164,21 @@ module Spectrum (
   wire [7:0] attrOut;
   wire [12:0] attr_addr;
 
-  dpram ram48 (
+  dpram
+  #(
+    .MEM_INIT_FILE("../roms/spectrum48.mem")
+  )
+  ram48 (
     .clk_a(cpuClock),
     .we_a(loading ? spi_ram_wr  && spi_ram_addr[31:24] == 8'h00 : !n_ramCS & !n_memWR),
-    .addr_a(loading ? spi_ram_addr[15:0] : cpuAddress - 16'h4000),
+    .addr_a(loading ? spi_ram_addr[15:0] : cpuAddress),
     .din_a(loading ? spi_ram_di : cpuDataOut),
     .dout_a(ramOut),
     .clk_b(clk_vga),
-    .addr_b({3'b0, vga_addr}),
+    .addr_b({3'b010, vga_addr}),
     .dout_b(vidOut),
     .clk_c(clk_vga),
-    .addr_c({3'b0, attr_addr}),
+    .addr_c({3'b010, attr_addr}),
     .dout_c(attrOut)
   );
 
@@ -265,9 +271,10 @@ module Spectrum (
   // ===============================================================
 
   assign cpuDataIn =  n_kbdCS == 1'b0 ? {3'b111, key_data} :
-                      n_romCS == 1'b0 ? romOut :
-                      n_ramCS == 1'b0 ? ramOut :
-		                        8'hff;
+                      ramOut;
+                      //n_romCS == 1'b0 ? romOut :
+                      //n_ramCS == 1'b0 ? ramOut :
+		      //                  8'hff;
 
   // ===============================================================
   // CPU clock enable
