@@ -17,7 +17,7 @@ module dpram (
 
   parameter MEM_INIT_FILE = "";
    
-  reg [7:0] ram [0:49151];
+  reg [7:0] ram [0:65535];
 
   initial
     if (MEM_INIT_FILE != "")
