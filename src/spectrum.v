@@ -17,6 +17,9 @@ module Spectrum (
   output        usb_fpga_pu_dn,
   inout         ps2Clk,
   inout         ps2Data,
+  // Audio
+  output [3:0]  audio_l,
+  output [3:0]  audio_r,
   // ESP32 passthru
   input         ftdi_txd,
   output        ftdi_rxd,
@@ -50,6 +53,7 @@ module Spectrum (
   reg [2:0]     border_color;
   wire          ula_we = ~cpuAddress[0] & ~n_IORQ & ~n_WR & n_M1;
   reg           old_ula_we;
+  reg           sound;
 
   reg [2:0]     cpuClockCount;
   wire          cpuClock;
@@ -146,7 +150,7 @@ module Spectrum (
   end
 
   // ===============================================================
-  // Border color
+  // Border color and sound
   // ===============================================================
 
   always @(posedge cpuClock) begin
@@ -154,8 +158,12 @@ module Spectrum (
 
     if (ula_we && !old_ula_we) begin
       border_color <= cpuDataOut[2:0];
+      sound <= cpuDataOut[4];
     end
   end
+
+  assign audio_l = {4{sound}};
+  assign audio_r = {4{sound}};
 
   // ===============================================================
   // RAM

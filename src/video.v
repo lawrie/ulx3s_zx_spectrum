@@ -80,7 +80,9 @@ module video (
   wire paper_green = flashing ? ink[2] : paper[2];
   wire paper_blue = flashing ? ink[0] : paper[0];
 
-  wire pixel = vga_data[~x[2:0]];
+  // Wait a clock cycle for vga_data to be available
+  reg pixel;
+  always @(posedge clk) if (hc[0]) pixel <= vga_data[~x[2:0]];
 
   wire red = border ? border_color[1] : pixel ? ink_red : paper_red;
   wire green = border ? border_color[2] : pixel ? ink_green : paper_green;
