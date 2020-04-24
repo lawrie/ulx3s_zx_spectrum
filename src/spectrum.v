@@ -93,8 +93,9 @@ module Spectrum (
 
   tv80n cpu1 (
     .reset_n(n_hard_reset),
-    .clk(loading ? 1'b0 : cpuClockEnable),
-    .wait_n(1'b1),
+    //.clk(loading ? 1'b0 : cpuClockEnable),
+    .clk(cpuClockEnable),
+    .wait_n(~loading),
     .int_n(n_INT),
     .nmi_n(1'b1),
     .busrq_n(1'b1),
