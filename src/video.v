@@ -34,6 +34,7 @@ module video (
   reg [9:0] vc = 0;
   reg INT = 0;
   reg[5:0] intCnt = 1;
+  reg [5:0] flash_cnt = 0;
 
   assign n_int = !INT;
 
@@ -43,7 +44,10 @@ module video (
       if (vc == VT - 1) vc <= 0;
       else vc <= vc + 1;
     end else hc <= hc + 1;
-    if (hc == HA + HFP && vc == VA + VFP) INT <= 1;
+    if (hc == HA + HFP && vc == VA + VFP) begin
+      INT <= 1;
+      flash_cnt <= flash_cnt + 1;
+    end
     if (INT) intCnt <= intCnt + 1;
     if (!intCnt) INT <= 0;
   end
@@ -66,14 +70,15 @@ module video (
   wire [2:0] paper = attr_data[5:3];
   wire bright = attr_data[6];
   wire flash = attr_data[7];
+  wire flashing = flash && flash_cnt[5];
 
-  wire ink_red = ink[1];
-  wire ink_green = ink[2];
-  wire ink_blue = ink[0];
+  wire ink_red = flashing ? paper[1] : ink[1];
+  wire ink_green = flashing ? paper[2] : ink[2];
+  wire ink_blue = flashing ? paper[0] : ink[0];
 
-  wire paper_red = paper[1];
-  wire paper_green = paper[2];
-  wire paper_blue = paper[0];
+  wire paper_red = flashing ? ink[1] :paper[1];
+  wire paper_green = flashing ? ink[2] : paper[2];
+  wire paper_blue = flashing ? ink[0] : paper[0];
 
   wire pixel = vga_data[~x[2:0]];
 
