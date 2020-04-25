@@ -55,15 +55,16 @@ class spiram:
       bytes_saved += len(block)
     self.led.off()
 
-  def cpu_halt(self):
+  def ctrl(self,i):
     self.led.on()
-    self.hwspi.write(bytearray([0, 0xFF, 0xFF, 0xFF, 0xFF, 2]))
+    self.hwspi.write(bytearray([0, 0xFF, 0xFF, 0xFF, 0xFF, i]))
     self.led.off()
 
+  def cpu_halt(self):
+    self.ctrl(2)
+
   def cpu_continue(self):
-    self.led.on()
-    self.hwspi.write(bytearray([0, 0xFF, 0xFF, 0xFF, 0xFF, 0]))
-    self.led.off()
+    self.ctrl(0)
 
   def load_z80_compressed_stream(self, filedata, length=0xFFFF):
     b=bytearray(1)
@@ -139,17 +140,54 @@ class spiram:
 
 def loadz80(filename):
   s=spiram()
+  s.cpu_halt()
+  s.load_stream(open("48.rom", "rb"), addr=0)
   z=open(filename,"rb")
   header1 = bytearray(30)
   z.readinto(header1)
   pc=unpack("<H",header1[6:8])[0]
+  s.led.on()
+  s.hwspi.write(bytearray([0, 0,0,0,6, 0xC2,0x04])) # overwrite 0x0006 to JP 0x04C2
+  s.led.off()
+  s.led.on()
+  s.hwspi.write(bytearray([0, 0,0,0x04,0xC2])) # overwrite 0x04C2
+  # Z80 code that POPs REGs from header1 as stack data at 0x500
+  # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
+  # restores AFBCDEHL' and AFBCDEHL
+  s.hwspi.write(bytearray([0x31,0x0F,0x05,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x31,0x0D,0x05,0xD1,0x31,0x00,0x05,0xF1,0xC1,0xE1]));
+  s.hwspi.write(bytearray([0x31])) # LD SP, ...
+  s.hwspi.write(header1[8:10])
+  s.hwspi.write(bytearray([0xED])) # IM ...
+  imarg = bytearray([0x46,0x56,0x5E,0x5E])
+  s.hwspi.write(bytearray([imarg[header1[29]&3]])) # IM mode
+  if header1[27]:
+    s.hwspi.write(bytearray([0xFB])) # EI
+  if 0: # DEBUG overwrite final JP address different than in header1
+    pc=54241
+    header1[6]=pc&0xFF
+    header1[7]=(pc>>8)&0xFF
+  s.hwspi.write(bytearray([0xC3])) # JP ...
+  s.hwspi.write(header1[6:8]) # PC address of final JP
+  s.led.off()
+  s.led.on()
+  s.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header1
+  s.hwspi.write(header1)
+  s.led.off()
   if pc:
     print("Z80 v1")
     print("PC=0x%04X PRINT USR %d" % (pc,pc))
     if header1[12] & 32:
       s.cpu_halt()
       s.load_z80_v1_compressed_block(z)
-      s.cpu_continue()
+      s.ctrl(3) # reset and halt
+      s.ctrl(1) # only reset
+      s.cpu_continue() # release reset
+      if 1: # restore original ROM
+        s.led.on()
+        s.cpu_halt()
+        s.load_stream(open("48.rom", "rb"), addr=0)
+        s.cpu_continue() # release reset
+        s.led.off()
       return
     else:
       s.cpu_halt()
@@ -205,7 +243,7 @@ def peek(addr,length=1):
   s.hwspi.readinto(b)
   s.led.off()
   s.cpu_continue()
-  print(b)
+  return b
 
 def poke(addr,data):
   s=spiram()
