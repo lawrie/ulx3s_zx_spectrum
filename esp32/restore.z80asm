@@ -7,9 +7,23 @@
 ;	jp   $04C2
 
 org $04C2
-	ld   SP,$050F
+        ; SP to 1 byte before interrupt register
+        ld   SP,$0509
+        ; F = ($0509), A = ($050A)
+        ; A has interrupt register, F discarded
+        pop  AF
+        LD   I,A
+        ; SP to 1 byte before border color
+        pop  AF
+        ; F = ($050B), A = ($050C)
+        ; A has color*2, F discarded
+        rra
+        ; A has color
+        out  ($FE),A
 	; SP to shadow registers AFBCDEHL' in header data
+	ld   SP,$050F
 	pop  BC
+        ; C = ($050F), B = ($0510)
 	pop  DE
 	pop  HL
         exx
