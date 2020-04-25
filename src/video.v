@@ -84,13 +84,13 @@ module video (
   reg pixel;
   always @(posedge clk) if (hc[0]) pixel <= vga_data[~x[2:0]];
 
-  wire red = border ? border_color[1] : pixel ? ink_red : paper_red;
-  wire green = border ? border_color[2] : pixel ? ink_green : paper_green;
-  wire blue = border ? border_color[0] : pixel ? ink_blue : paper_blue;
+  wire [3:0] red = border ? {4{border_color[1]}} : ({1'b0, {3{pixel ? ink_red : paper_red}}} << bright);
+  wire [3:0] green = border ? {4{border_color[2]}} : ({1'b0, {3{pixel ? ink_green : paper_green}}} << bright) ;
+  wire [3:0] blue = border ? {4{border_color[0]}} : ({1'b0, {3{pixel ? ink_blue : paper_blue}}} << bright);
 
-  assign vga_r = !vga_de ? 4'b0 : {bright, {3{red}}};
-  assign vga_g = !vga_de ? 4'b0 : {bright, {3{green}}};
-  assign vga_b = !vga_de ? 4'b0 : {bright, {3{blue}}};
+  assign vga_r = !vga_de ? 4'b0 : red;
+  assign vga_g = !vga_de ? 4'b0 : green;
+  assign vga_b = !vga_de ? 4'b0 : blue;
 
 endmodule
 
