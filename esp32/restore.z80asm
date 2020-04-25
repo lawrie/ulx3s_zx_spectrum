@@ -1,0 +1,37 @@
+; usage:
+; z80asm restore.z80asm
+; hexdump -v -e '/1 "0x%02X,"' a.bin
+; copy paste to the right place in spiram.py
+
+;org $0005
+;	jp   $04C2
+
+org $04C2
+	ld   SP,$050F
+	; SP to shadow registers AFBCDEHL' in header data
+	pop  BC
+	pop  DE
+	pop  HL
+        exx
+	pop  AF
+	ex   AF,AF'
+        pop  IY
+        pop  IX
+	; SP to DE
+        ld   SP,$050D
+        pop  DE
+	; SP to AFBCHL
+        ld   SP,$0500
+        pop  AF
+        pop  BC
+        pop  HL
+	; modify 5555 from header data
+        ld   SP,$5555
+        ; depending on header data, choose some:
+        ;IM   0
+	;IM   1
+        IM   2
+        ;DI
+        EI
+        ; modify AAAA from header data
+	jp   $AAAA
