@@ -157,19 +157,19 @@ class spiram:
       self.hwspi.write(bytearray([0xFB])) # EI
     header[6]=pc&0xFF
     header[7]=(pc>>8)&0xFF
-    header[12] ^= 7<<1 # FIXME border color
     self.hwspi.write(bytearray([0xC3])) # JP ...
     self.hwspi.write(header[6:8]) # PC address of final JP
     self.led.off()
     self.led.on()
     self.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header
-    # header: exchange A and F, A' and F' to become POPable
+    # header fix: exchange A and F, A' and F' to become POPable
     x=header[0]
     header[0]=header[1]
     header[1]=x
     x=header[21]
     header[21]=header[22]
     header[22]=x
+    header[12] ^= 7<<1 # FIXME border color
     self.hwspi.write(header) # AF and AF' now POPable
     self.led.off()
 
