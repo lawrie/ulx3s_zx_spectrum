@@ -137,72 +137,59 @@ class spiram:
     else:
       self.load_stream(filedata,addr)
     return True
+  
+  def patch_rom(self,pc,header):
+    self.led.on()
+    self.hwspi.write(bytearray([0, 0,0,0,6, 0xC2,0x04])) # overwrite 0x0006 to JP 0x04C2
+    self.led.off()
+    self.led.on()
+    self.hwspi.write(bytearray([0, 0,0,0x04,0xC2])) # overwrite 0x04C2
+    # Z80 code that POPs REGs from header as stack data at 0x500
+    # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
+    # restores border color, registers I, AFBCDEHL' and AFBCDEHL
+    self.hwspi.write(bytearray([0x31,0x09,0x05,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0x31,0x0F,0x05,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x31,0x0D,0x05,0xD1,0x31,0x00,0x05,0xF1,0xC1,0xE1]));
+    self.hwspi.write(bytearray([0x31])) # LD SP, ...
+    self.hwspi.write(header[8:10])
+    self.hwspi.write(bytearray([0xED])) # IM ...
+    imarg = bytearray([0x46,0x56,0x5E,0x5E])
+    self.hwspi.write(bytearray([imarg[header[29]&3]])) # IM mode
+    if header[27]:
+      self.hwspi.write(bytearray([0xFB])) # EI
+    header[6]=pc&0xFF
+    header[7]=(pc>>8)&0xFF
+    header[12] ^= 7<<1 # FIXME border color
+    self.hwspi.write(bytearray([0xC3])) # JP ...
+    self.hwspi.write(header[6:8]) # PC address of final JP
+    self.led.off()
+    self.led.on()
+    self.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header
+    # header: exchange A and F, A' and F' to become POPable
+    x=header[0]
+    header[0]=header[1]
+    header[1]=x
+    x=header[21]
+    header[21]=header[22]
+    header[22]=x
+    self.hwspi.write(header) # AF and AF' now POPable
+    self.led.off()
 
 def loadz80(filename):
   s=spiram()
-  s.cpu_halt()
-  s.load_stream(open("48.rom", "rb"), addr=0)
   z=open(filename,"rb")
   header1 = bytearray(30)
   z.readinto(header1)
   pc=unpack("<H",header1[6:8])[0]
-  s.led.on()
-  s.hwspi.write(bytearray([0, 0,0,0,6, 0xC2,0x04])) # overwrite 0x0006 to JP 0x04C2
-  s.led.off()
-  s.led.on()
-  s.hwspi.write(bytearray([0, 0,0,0x04,0xC2])) # overwrite 0x04C2
-  # Z80 code that POPs REGs from header1 as stack data at 0x500
-  # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
-  # restores border color, registers I, AFBCDEHL' and AFBCDEHL
-  s.hwspi.write(bytearray([0x31,0x09,0x05,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0x31,0x0F,0x05,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x31,0x0D,0x05,0xD1,0x31,0x00,0x05,0xF1,0xC1,0xE1]));
-  s.hwspi.write(bytearray([0x31])) # LD SP, ...
-  s.hwspi.write(header1[8:10])
-  s.hwspi.write(bytearray([0xED])) # IM ...
-  imarg = bytearray([0x46,0x56,0x5E,0x5E])
-  s.hwspi.write(bytearray([imarg[header1[29]&3]])) # IM mode
-  if header1[27]:
-    s.hwspi.write(bytearray([0xFB])) # EI
-  if 0: # DEBUG overwrite final JP address different than in header1
-    pc=54241
-    header1[6]=pc&0xFF
-    header1[7]=(pc>>8)&0xFF
-  header1[12] ^= 7<<1 # DEBUG make wrong border color
-  s.hwspi.write(bytearray([0xC3])) # JP ...
-  s.hwspi.write(header1[6:8]) # PC address of final JP
-  s.led.off()
-  s.led.on()
-  s.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header1
-  if 1:
-    # header1: exchange A and F, A' and F' to become POPable
-    x=header1[0]
-    header1[0]=header1[1]
-    header1[1]=x
-    x=header1[21]
-    header1[21]=header1[22]
-    header1[22]=x
-  s.hwspi.write(header1) # AF and AF' now POPable
-  s.led.off()
-  if pc:
+  s.cpu_halt()
+  s.load_stream(open("48.rom", "rb"), addr=0)
+  if pc: # V1 format
     print("Z80 v1")
-    print("PC=0x%04X PRINT USR %d" % (pc,pc))
+    print("PC=0x%04X USR %d" % (pc,pc))
+    s.patch_rom(pc,header1)
     if header1[12] & 32:
-      s.cpu_halt()
       s.load_z80_v1_compressed_block(z)
-      s.ctrl(3) # reset and halt
-      s.ctrl(1) # only reset
-      s.cpu_continue() # release reset
-      if 1: # restore original ROM
-        s.led.on()
-        s.cpu_halt()
-        s.load_stream(open("48.rom", "rb"), addr=0)
-        s.cpu_continue() # release reset
-        s.led.off()
-      return
     else:
-      s.cpu_halt()
       s.load_stream(z)
-      s.cpu_continue()
-  else:
+  else: # V2 or V3 format
     word = bytearray(2)
     z.readinto(word)
     length2 = unpack("<H", word)[0]
@@ -217,11 +204,17 @@ def loadz80(filename):
     header2 = bytearray(length2)
     z.readinto(header2)
     pc=unpack("<H",header2[0:2])[0]
-  print("PC=0x%04X" % pc)
-  s.cpu_halt()
-  while s.load_z80_v23_block(z):
-    pass
+    print("PC=0x%04X" % pc)
+    s.patch_rom(pc,header1)
+    while s.load_z80_v23_block(z):
+      pass
+  s.ctrl(3) # reset and halt
+  s.ctrl(1) # only reset
   s.cpu_continue()
+  if 1: # restore original ROM after image starts
+    s.cpu_halt()
+    s.load_stream(open("48.rom", "rb"), addr=0)
+    s.cpu_continue() # release reset
 
 def load(filename, addr=0x4000):
   s=spiram()
