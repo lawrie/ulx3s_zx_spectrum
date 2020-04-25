@@ -153,8 +153,8 @@ def loadz80(filename):
   s.hwspi.write(bytearray([0, 0,0,0x04,0xC2])) # overwrite 0x04C2
   # Z80 code that POPs REGs from header1 as stack data at 0x500
   # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
-  # restores AFBCDEHL' and AFBCDEHL
-  s.hwspi.write(bytearray([0x31,0x0F,0x05,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x31,0x0D,0x05,0xD1,0x31,0x00,0x05,0xF1,0xC1,0xE1]));
+  # restores border color, registers I, AFBCDEHL' and AFBCDEHL
+  s.hwspi.write(bytearray([0x31,0x09,0x05,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0x31,0x0F,0x05,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x31,0x0D,0x05,0xD1,0x31,0x00,0x05,0xF1,0xC1,0xE1]));
   s.hwspi.write(bytearray([0x31])) # LD SP, ...
   s.hwspi.write(header1[8:10])
   s.hwspi.write(bytearray([0xED])) # IM ...
@@ -166,12 +166,21 @@ def loadz80(filename):
     pc=54241
     header1[6]=pc&0xFF
     header1[7]=(pc>>8)&0xFF
+  header1[12] ^= 7<<1 # DEBUG make wrong border color
   s.hwspi.write(bytearray([0xC3])) # JP ...
   s.hwspi.write(header1[6:8]) # PC address of final JP
   s.led.off()
   s.led.on()
   s.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header1
-  s.hwspi.write(header1)
+  if 1:
+    # header1: exchange A and F, A' and F' to become POPable
+    x=header1[0]
+    header1[0]=header1[1]
+    header1[1]=x
+    x=header1[21]
+    header1[21]=header1[22]
+    header1[22]=x
+  s.hwspi.write(header1) # AF and AF' now POPable
   s.led.off()
   if pc:
     print("Z80 v1")
