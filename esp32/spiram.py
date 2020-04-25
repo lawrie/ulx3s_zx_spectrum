@@ -139,15 +139,19 @@ class spiram:
     return True
   
   def patch_rom(self,pc,header):
+    # overwrite tape saving code in original ROM
+    # with restore code and data from header
+    code_addr = 0x4C2
+    header_addr = 0x500
     self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,0,6, 0xC2,0x04])) # overwrite 0x0006 to JP 0x04C2
+    self.hwspi.write(bytearray([0, 0,0,0,6, code_addr&0xFF, (code_addr>>8)&0xFF])) # overwrite 0x0006 to JP 0x04C2
     self.led.off()
     self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,0x04,0xC2])) # overwrite 0x04C2
+    self.hwspi.write(bytearray([0, 0,0,(code_addr>>8)&0xFF,code_addr&0xFF])) # overwrite 0x04C2
     # Z80 code that POPs REGs from header as stack data at 0x500
     # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
     # restores border color, registers I, AFBCDEHL' and AFBCDEHL
-    self.hwspi.write(bytearray([0x31,0x09,0x05,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0xD1,0xD9,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x21,0xE5,0xFF,0x39,0xF9,0xF1,0xC1,0xE1]));
+    self.hwspi.write(bytearray([0x31,(header_addr+9)&0xFF,((header_addr+9)>>8)&0xFF,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0xD1,0xD9,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x21,0xE5,0xFF,0x39,0xF9,0xF1,0xC1,0xE1]));
     self.hwspi.write(bytearray([0x31])) # LD SP, ...
     self.hwspi.write(header[8:10])
     self.hwspi.write(bytearray([0xED])) # IM ...
@@ -161,7 +165,7 @@ class spiram:
     self.hwspi.write(header[6:8]) # PC address of final JP
     self.led.off()
     self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,0x05,0x00])) # overwrite 0x0500 with header
+    self.hwspi.write(bytearray([0, 0,0,(header_addr>>8)&0xFF,header_addr&0xFF])) # overwrite 0x0500 with header
     # header fix: exchange A and F, A' and F' to become POPable
     x=header[0]
     header[0]=header[1]
