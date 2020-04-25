@@ -27,7 +27,10 @@ module Spectrum (
   output        wifi_rxd,  // SPI from ESP32
   input         wifi_gpio16,
   input         wifi_gpio5,
-  inout [2:1]   sd_dat,
+
+  inout  sd_clk, sd_cmd,
+  inout   [3:0] sd_d,
+
   // Leds
   output [7:0]  leds,
   output reg [15:0] diag
@@ -124,6 +127,8 @@ module Spectrum (
   wire [7:0] ramOut;
   wire [7:0] spi_ram_do = ramOut;
 
+  assign sd_d[3] = 1'bz; // FPGA pin pullup sets SD card inactive at SPI bus
+
   spirw_slave_v
   #(
     .c_sclk_capable_pin(1'b0),
@@ -134,8 +139,8 @@ module Spectrum (
     .clk(cpuClock),
     .csn(~wifi_gpio5),
     .sclk(wifi_gpio16),
-    .mosi(sd_dat[1]), // wifi_gpio4
-    .miso(sd_dat[2]), // wifi_gpio12
+    .mosi(sd_d[1]), // wifi_gpio4
+    .miso(sd_d[2]), // wifi_gpio12
     .wr(spi_ram_wr),
     .rd(spi_ram_rd),
     .addr(spi_ram_addr),
