@@ -127,7 +127,7 @@ class spiram:
       length=0x4000
     else:
       compress=1
-    print("addr=%04X compress=%d" % (addr,compress))
+    #print("addr=%04X compress=%d" % (addr,compress))
     if compress:
       # Request load
       self.led.on()
@@ -187,7 +187,6 @@ def loadz80(filename):
   s.load_stream(open("48.rom", "rb"), addr=0)
   if pc: # V1 format
     print("Z80 v1")
-    print("PC=0x%04X USR %d" % (pc,pc))
     s.patch_rom(pc,header1)
     if header1[12] & 32:
       s.load_z80_v1_compressed_block(z)
@@ -208,7 +207,6 @@ def loadz80(filename):
     header2 = bytearray(length2)
     z.readinto(header2)
     pc=unpack("<H",header2[0:2])[0]
-    print("PC=0x%04X" % pc)
     s.patch_rom(pc,header1)
     while s.load_z80_v23_block(z):
       pass
