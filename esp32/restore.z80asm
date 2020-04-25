@@ -3,6 +3,46 @@
 ; hexdump -v -e '/1 "0x%02X,"' a.bin
 ; copy paste to the right place in spiram.py
 
+; expects modified .Z80 file header with A/F exchanged
+; which looks like:
+
+;       Offset  Length  Description
+;       ---------------------------
+;       0       1       F register
+;       1       1       A register
+;       2       2       BC register pair (LSB, i.e. C, first)
+;       4       2       HL register pair
+;       6       2       Program counter
+;       8       2       Stack pointer
+;       10      1       Interrupt register
+;       11      1       Refresh register (Bit 7 is not significant!)
+;       12      1       Bit 0  : Bit 7 of the R-register
+;                       Bit 1-3: Border colour
+;                       Bit 4  : 1=Basic SamRom switched in
+;                       Bit 5  : 1=Block of data is compressed
+;                       Bit 6-7: No meaning
+;       13      2       DE register pair
+;       15      2       BC' register pair
+;       17      2       DE' register pair
+;       19      2       HL' register pair
+;       21      1       F' register
+;       22      1       A' register
+;       23      2       IY register (Again LSB first)
+;       25      2       IX register
+;       27      1       Interrupt flipflop, 0=DI, otherwise EI
+;       28      1       IFF2 (not particularly important...)
+;       29      1       Bit 0-1: Interrupt mode (0, 1 or 2)
+;                       Bit 2  : 1=Issue 2 emulation
+;                       Bit 3  : 1=Double interrupt frequency
+;                       Bit 4-5: 1=High video synchronisation
+;                                3=Low video synchronisation
+;                                0,2=Normal
+;                       Bit 6-7: 0=Cursor/Protek/AGF joystick
+;                                1=Kempston joystick
+;                                2=Sinclair 2 Left joystick (or user
+;                                  defined, for version 3 .z80 files)
+;                                3=Sinclair 2 Right joystick
+
 ;org $0005
 ;	jp   $04C2
 
