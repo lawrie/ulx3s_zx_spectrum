@@ -188,7 +188,7 @@ def loadz80(filename):
     if header1[12] & 32:
       s.load_z80_v1_compressed_block(z)
     else:
-      s.load_stream(z)
+      s.load_stream(z,0x4000)
   else: # V2 or V3 format
     word = bytearray(2)
     z.readinto(word)
