@@ -115,13 +115,17 @@ class spiram:
       print("load z80 block: length=%d, page=%d" % (length,page))
     else:
       return False
-    addr = 0
+    addr = -1
     if page==4:
       addr=0x8000
     if page==5:
       addr=0xC000
     if page==8:
       addr=0x4000
+    if addr < 0:
+      print("unsupported page ignored")
+      filedata.seek(length,1)
+      return True
     if length==0xFFFF:
       compress=0
       length=0x4000
@@ -135,7 +139,8 @@ class spiram:
       self.load_z80_compressed_stream(filedata,length)
       self.led.off()
     else:
-      self.load_stream(filedata,addr)
+      print("uncompressed v2/v3 needs FIXME")
+      self.load_stream(filedata,addr) # FIXME length missing, should not work
     return True
   
   def patch_rom(self,pc,header):
