@@ -62,14 +62,18 @@ module video (
   assign vga_addr = {y[7:6], y[2:0], y[5:3], x[7:3]};
   assign attr_addr = 13'h1800 + {3'b0, y[7:3], x[7:3]};
 
+  // Wait one clock cycle for attr_data to be available
+  reg [7:0] attr;
+  always @(posedge clk) if (hc[0]) attr <= attr_data;
+
   wire hBorder = (hc < HB || hc >= HA - HB);
   wire vBorder = (vc < VB || vc >= VA - VB);
   wire border = hBorder || vBorder;
 
-  wire [2:0] ink = attr_data[2:0];
-  wire [2:0] paper = attr_data[5:3];
-  wire bright = attr_data[6];
-  wire flash = attr_data[7];
+  wire [2:0] ink = attr[2:0];
+  wire [2:0] paper = attr[5:3];
+  wire bright = attr[6];
+  wire flash = attr[7];
   wire flashing = flash && flash_cnt[5];
 
   wire ink_red = flashing ? paper[1] : ink[1];
