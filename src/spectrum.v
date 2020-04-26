@@ -249,9 +249,9 @@ module Spectrum (
   HDMI_out vga2dvid (
     .pixclk(clk_vga),
     .pixclk_x5(clk_hdmi),
-    .red({red, 4'b0}),
-    .green({green, 4'b0}),
-    .blue({blue, 4'b0}),
+    .red  ( {red,   {4{red[0]}}   }),
+    .green( {green, {4{green[0]}} }),
+    .blue ( {blue,  {4{blue[0]}}  }),
     .vde(vga_de),
     .hSync(hSync),
     .vSync(vSync),
