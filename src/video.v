@@ -10,8 +10,6 @@ module video (
   output        vga_de,
   input  [7:0]  vga_data,
   output [12:0] vga_addr,
-  input  [7:0]  attr_data,
-  output [12:0] attr_addr,
   output        n_int,
   input  [2:0]  border_color
 );
@@ -22,6 +20,10 @@ module video (
   parameter HBP = 48;
   parameter HT  = HA + HS + HFP + HBP;
   parameter HB = 64;
+  parameter HB2 = HB/2-8; // NOTE pixel coarse H-adjust
+  parameter HDELAY = 3; // NOTE pixel fine H-adjust
+  parameter HBattr = 4; // NOTE attr coarse H-adjust
+  parameter HBadj = 4; // NOTE border H-adjust
 
   parameter VA = 480;
   parameter VS  = 2;
@@ -29,6 +31,7 @@ module video (
   parameter VBP = 31;
   parameter VT  = VA + VS + VFP + VBP;
   parameter VB = 48;
+  parameter VB2 = VB/2;
 
   reg [9:0] hc = 0;
   reg [9:0] vc = 0;
@@ -56,24 +59,41 @@ module video (
   assign vga_vs = !(vc >= VA + VFP && vc < VA + VFP + VS);
   assign vga_de = !(hc > HA || vc > VA);
 
-  wire [7:0] x = (hc - HB) >> 1;
-  wire [7:0] y = (vc - VB) >> 1;
+  wire [7:0] x = hc[9:1] - HB2;
+  wire [7:0] y = vc[9:1] - VB2;
 
-  assign vga_addr = {y[7:6], y[2:0], y[5:3], x[7:3]};
-  assign attr_addr = 13'h1800 + {3'b0, y[7:3], x[7:3]};
-
-  // Wait one clock cycle for attr_data to be available
-  reg [7:0] attr;
-  always @(posedge clk) if (hc[0]) attr <= attr_data;
-
-  wire hBorder = (hc < HB || hc >= HA - HB);
+  wire hBorder = (hc < (HB + HBadj) || hc >= (HA - HB + HBadj));
   wire vBorder = (vc < VB || vc >= VA - VB);
   wire border = hBorder || vBorder;
 
-  wire [2:0] ink = attr[2:0];
-  wire [2:0] paper = attr[5:3];
-  wire bright = attr[6];
-  wire flash = attr[7];
+  wire [7:3] xattr_early = hc[8:4]-HBattr;
+  reg [12:0] R_vga_addr;
+  reg [7:0] R_attr_data, R_pixel_data;
+  reg [HDELAY-1:0] R_pixel;
+  always @(posedge clk)
+  begin
+    if (hc[0])
+    begin
+      R_vga_addr <= {3'b110, y[7:3], xattr_early[7:3]}; // attr addr
+      R_attr_data <= vga_data;
+    end
+    else
+    begin
+      R_vga_addr <= {y[7:6], y[2:0], y[5:3],x[7:3]}; // pixel addr
+      if (hc[3:1])
+        R_pixel_data <= {R_pixel_data[6:0],1'b0};
+      else
+        R_pixel_data <= vga_data;
+    end
+    R_pixel <= {R_pixel_data[7], R_pixel[HDELAY-1:1]}; // delay line
+  end
+  assign vga_addr = R_vga_addr;
+  wire pixel = R_pixel[0];
+
+  wire [2:0] ink = R_attr_data[2:0];
+  wire [2:0] paper = R_attr_data[5:3];
+  wire bright = R_attr_data[6];
+  wire flash = R_attr_data[7];
   wire flashing = flash && flash_cnt[5];
 
   wire ink_red = flashing ? paper[1] : ink[1];
@@ -84,10 +104,6 @@ module video (
   wire paper_green = flashing ? ink[2] : paper[2];
   wire paper_blue = flashing ? ink[0] : paper[0];
 
-  // Wait a clock cycle for vga_data to be available
-  reg pixel;
-  always @(posedge clk) if (hc[0]) pixel <= vga_data[~x[2:0]];
-
   wire [3:0] red = border ? {4{border_color[1]}} : ({1'b0, {3{pixel ? ink_red : paper_red}}} << bright);
   wire [3:0] green = border ? {4{border_color[2]}} : ({1'b0, {3{pixel ? ink_green : paper_green}}} << bright) ;
   wire [3:0] blue = border ? {4{border_color[0]}} : ({1'b0, {3{pixel ? ink_blue : paper_blue}}} << bright);
@@ -97,4 +113,3 @@ module video (
   assign vga_b = !vga_de ? 4'b0 : blue;
 
 endmodule
-
