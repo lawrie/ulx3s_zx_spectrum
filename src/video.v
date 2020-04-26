@@ -104,10 +104,9 @@ module video (
   wire paper_green = flashing ? ink[2] : paper[2];
   wire paper_blue = flashing ? ink[0] : paper[0];
 
-  wire [3:0] red = border ? {4{border_color[1]}} : ({1'b0, {3{pixel ? ink_red : paper_red}}} << bright);
-  wire [3:0] green = border ? {4{border_color[2]}} : ({1'b0, {3{pixel ? ink_green : paper_green}}} << bright) ;
-  wire [3:0] blue = border ? {4{border_color[0]}} : ({1'b0, {3{pixel ? ink_blue : paper_blue}}} << bright);
-
+  wire [3:0] red   = border ? {1'b0,{3{border_color[1]}}} : bright ? {4{pixel ? ink_red   : paper_red}}   : {1'b0, {3{pixel ? ink_red   : paper_red}}};
+  wire [3:0] green = border ? {1'b0,{3{border_color[2]}}} : bright ? {4{pixel ? ink_green : paper_green}} : {1'b0, {3{pixel ? ink_green : paper_green}}};
+  wire [3:0] blue  = border ? {1'b0,{3{border_color[0]}}} : bright ? {4{pixel ? ink_blue  : paper_blue}}  : {1'b0, {3{pixel ? ink_blue  : paper_blue}}};
   assign vga_r = !vga_de ? 4'b0 : red;
   assign vga_g = !vga_de ? 4'b0 : green;
   assign vga_b = !vga_de ? 4'b0 : blue;
