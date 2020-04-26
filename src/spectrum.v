@@ -190,10 +190,7 @@ module Spectrum (
     .dout_a(ramOut),
     .clk_b(clk_vga),
     .addr_b({3'b010, vga_addr}),
-    .dout_b(vidOut),
-    .clk_c(clk_vga),
-    .addr_c({3'b010, attr_addr}),
-    .dout_c(attrOut)
+    .dout_b(vidOut)
   );
 
   // ===============================================================
@@ -244,8 +241,6 @@ module Spectrum (
     .vga_vs(vSync),
     .vga_addr(vga_addr),
     .vga_data(vidOut),
-    .attr_addr(attr_addr),
-    .attr_data(attrOut),
     .n_int(n_INT),
     .border_color(border_color)
   );
