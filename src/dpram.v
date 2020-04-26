@@ -8,11 +8,7 @@ module dpram (
   // Port B
   input            clk_b,
   input [15:0]     addr_b,
-  output reg [7:0] dout_b,
-  // Port C
-  input            clk_c,
-  input [15:0]     addr_c,
-  output reg [7:0] dout_c            
+  output reg [7:0] dout_b
 );
 
   parameter MEM_INIT_FILE = "";
@@ -33,7 +29,4 @@ module dpram (
     dout_b <= ram[addr_b];
   end
 
-  always @(posedge clk_c) begin
-    dout_c <= ram[addr_c];
-  end
 endmodule
