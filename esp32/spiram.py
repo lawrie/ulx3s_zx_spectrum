@@ -182,6 +182,8 @@ class spiram:
     x=header[21]
     header[21]=header[22]
     header[22]=x
+    if header[12]==255:
+      header[12]=1
     header[12] ^= 7<<1 # FIXME border color
     self.hwspi.write(header) # AF and AF' now POPable
     self.led.off()
