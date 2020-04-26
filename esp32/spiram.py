@@ -30,14 +30,16 @@ class spiram:
     self.gpio_miso = const(12)
 
   # read from file -> write to SPI RAM
-  def load_stream(self, filedata, addr=0, blocksize=1024):
+  def load_stream(self, filedata, addr=0, maxlen=0x10000, blocksize=1024):
     block = bytearray(blocksize)
     # Request load
     self.led.on()
     self.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
-    while True:
+    bytes_loaded = 0
+    while bytes_loaded < maxlen:
       if filedata.readinto(block):
         self.hwspi.write(block)
+        bytes_loaded += blocksize
       else:
         break
     self.led.off()
@@ -139,8 +141,8 @@ class spiram:
       self.load_z80_compressed_stream(filedata,length)
       self.led.off()
     else:
-      print("uncompressed v2/v3 needs FIXME")
-      self.load_stream(filedata,addr) # FIXME length missing, should not work
+      print("uncompressed v2/v3 may need FIXME")
+      self.load_stream(filedata,addr,16384)
     return True
   
   def patch_rom(self,pc,header):
