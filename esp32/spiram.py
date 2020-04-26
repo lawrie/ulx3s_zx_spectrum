@@ -18,6 +18,8 @@ class spiram:
   def __init__(self):
     self.led = Pin(5, Pin.OUT)
     self.led.off()
+    self.rom="48.rom"
+    #self.rom="/sd/zxspectrum/48.rom"
     self.spi_channel = const(2)
     self.init_pinout_sd()
     self.spi_freq = const(4000000)
@@ -184,46 +186,49 @@ class spiram:
     self.hwspi.write(header) # AF and AF' now POPable
     self.led.off()
 
+  def loadz80(self,filename):
+    z=open(filename,"rb")
+    header1 = bytearray(30)
+    z.readinto(header1)
+    pc=unpack("<H",header1[6:8])[0]
+    self.cpu_halt()
+    self.load_stream(open(self.rom, "rb"), addr=0)
+    if pc: # V1 format
+      print("Z80 v1")
+      self.patch_rom(pc,header1)
+      if header1[12] & 32:
+        self.load_z80_v1_compressed_block(z)
+      else:
+        self.load_stream(z,0x4000)
+    else: # V2 or V3 format
+      word = bytearray(2)
+      z.readinto(word)
+      length2 = unpack("<H", word)[0]
+      if length2 == 23:
+        print("Z80 v2")
+      else:
+        if length2 == 54 or length2 == 55:
+          print("Z80 v3")
+        else:
+          print("unsupported header2 length %d" % length2)
+          return
+      header2 = bytearray(length2)
+      z.readinto(header2)
+      pc=unpack("<H",header2[0:2])[0]
+      self.patch_rom(pc,header1)
+      while self.load_z80_v23_block(z):
+        pass
+    self.ctrl(3) # reset and halt
+    self.ctrl(1) # only reset
+    self.cpu_continue()
+    # restore original ROM after image starts
+    self.cpu_halt()
+    self.load_stream(open(self.rom, "rb"), addr=0)
+    self.cpu_continue() # release reset
+
 def loadz80(filename):
   s=spiram()
-  z=open(filename,"rb")
-  header1 = bytearray(30)
-  z.readinto(header1)
-  pc=unpack("<H",header1[6:8])[0]
-  s.cpu_halt()
-  s.load_stream(open("48.rom", "rb"), addr=0)
-  if pc: # V1 format
-    print("Z80 v1")
-    s.patch_rom(pc,header1)
-    if header1[12] & 32:
-      s.load_z80_v1_compressed_block(z)
-    else:
-      s.load_stream(z,0x4000)
-  else: # V2 or V3 format
-    word = bytearray(2)
-    z.readinto(word)
-    length2 = unpack("<H", word)[0]
-    if length2 == 23:
-      print("Z80 v2")
-    else:
-      if length2 == 54 or length2 == 55:
-        print("Z80 v3")
-      else:
-        print("unsupported header2 length %d" % length2)
-        return
-    header2 = bytearray(length2)
-    z.readinto(header2)
-    pc=unpack("<H",header2[0:2])[0]
-    s.patch_rom(pc,header1)
-    while s.load_z80_v23_block(z):
-      pass
-  s.ctrl(3) # reset and halt
-  s.ctrl(1) # only reset
-  s.cpu_continue()
-  if 1: # restore original ROM after image starts
-    s.cpu_halt()
-    s.load_stream(open("48.rom", "rb"), addr=0)
-    s.cpu_continue() # release reset
+  s.loadz80(filename)
 
 def load(filename, addr=0x4000):
   s=spiram()
@@ -266,6 +271,6 @@ def poke(addr,data):
   s.cpu_continue()
 
 def help():
+  print("spiram.loadz80(\"file.z80\")")
   print("spiram.load(\"file.bin\",addr=0)")
-  print("spiram.save(\"file.bin\",addr=0,length=1024)")
-
+  print("spiram.save(\"file.bin\",addr=0x4000,length=0xC000)")
