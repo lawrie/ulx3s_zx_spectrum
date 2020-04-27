@@ -18,8 +18,9 @@ class spiram:
   def __init__(self):
     self.led = Pin(5, Pin.OUT)
     self.led.off()
-    #self.rom="48.rom"
-    self.rom="/sd/zxspectrum/48.rom"
+    self.rom="48.rom"
+    #self.rom="opense.rom"
+    #self.rom="/sd/zxspectrum/48.rom"
     self.spi_channel = const(2)
     self.init_pinout_sd()
     self.spi_freq = const(4000000)
@@ -153,7 +154,7 @@ class spiram:
     code_addr = 0x4C2
     header_addr = 0x500
     self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,0,6, code_addr&0xFF, (code_addr>>8)&0xFF])) # overwrite 0x0006 to JP 0x04C2
+    self.hwspi.write(bytearray([0, 0,0,0,0, 0xF3, 0xAF, 0x11, 0xFF, 0xFF, 0xC3, code_addr&0xFF, (code_addr>>8)&0xFF])) # overwrite start of ROM to JP 0x04C2
     self.led.off()
     self.led.on()
     self.hwspi.write(bytearray([0, 0,0,(code_addr>>8)&0xFF,code_addr&0xFF])) # overwrite 0x04C2
