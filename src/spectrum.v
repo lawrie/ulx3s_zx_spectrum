@@ -283,7 +283,7 @@ module Spectrum (
   // ===============================================================
 
   assign cpuDataIn =  n_kbdCS == 1'b0 ? {3'b111, key_data} :
-                      n_joyCS == 1'b0 ? {2'b0, btn[2], btn[1], btn[3], btn[4], btn[5], btn[6]} : // x x x FIRE1 UP DOWN LEFT RIGHT
+                      n_joyCS == 1'b0 ? {2'b0, btn[2], btn[1], btn[3], btn[4], btn[5], btn[6]} : // x x (x or FIRE2 on modified hardware) FIRE1 UP DOWN LEFT RIGHT
                       ramOut;
 
   // ===============================================================
