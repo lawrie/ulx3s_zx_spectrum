@@ -27,6 +27,7 @@ module Spectrum (
   output        wifi_rxd,  // SPI from ESP32
   input         wifi_gpio16,
   input         wifi_gpio5,
+  output        wifi_gpio0,
 
   inout  sd_clk, sd_cmd,
   inout   [3:0] sd_d,
@@ -130,24 +131,28 @@ module Spectrum (
 
   assign sd_d[3] = 1'bz; // FPGA pin pullup sets SD card inactive at SPI bus
 
-  spirw_slave_v
+  wire irq;
+  spi_ram_btn
   #(
     .c_sclk_capable_pin(1'b0),
     .c_addr_bits(32)
   )
-  spirw_slave_v_inst
+  spi_ram_btn_inst
   (
     .clk(cpuClock),
     .csn(~wifi_gpio5),
     .sclk(wifi_gpio16),
     .mosi(sd_d[1]), // wifi_gpio4
     .miso(sd_d[2]), // wifi_gpio12
+    .btn(btn),
+    .irq(irq),
     .wr(spi_ram_wr),
     .rd(spi_ram_rd),
     .addr(spi_ram_addr),
     .data_in(spi_ram_do),
     .data_out(spi_ram_di)
   );
+  assign wifi_gpio0 = ~irq;
 
   always @(posedge cpuClock) begin
     if (spi_ram_wr && spi_ram_addr[31:24] == 8'hFF) begin
@@ -224,6 +229,7 @@ module Spectrum (
   // pull-ups for us2 connector 
   assign usb_fpga_pu_dp = 1;
   assign usb_fpga_pu_dn = 1;
+  
 
   // ===============================================================
   // VGA
@@ -283,6 +289,10 @@ module Spectrum (
   );
 
   // ===============================================================
+  // SPI IRQ
+  // ===============================================================
+
+  // ===============================================================
   // MEMORY READ/WRITE LOGIC
   // ===============================================================
 
@@ -326,7 +336,7 @@ module Spectrum (
   wire led3 = loading;
   wire led4 = !n_hard_reset;
 
-  assign leds = {border_color, 1'b0 , led4, led3, led2, led1};
+  assign leds = {border_color, irq , led4, led3, led2, led1};
   
   always @(posedge clk) begin
     diag <= attrOut;
