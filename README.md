@@ -10,7 +10,7 @@ Games can be loaded in .z80 format from the ESP32.
 
 Does not support models other than the Spectrum 16k and 48k.
 
-To build and uplpoad the bit file, do:
+To build and upload the bit file, do:
 
 
 ```sh
@@ -22,7 +22,7 @@ The default build is for the 85f. For other models, use the DEVICE parameter to 
 
 To set up the ESP32 follow the instructions at https://github.com/emard/esp32ecp5.
 
-Upload the esp32/spiram.py file to the ESP32.
+Upload the esp32/spiram.py and roms/48.rom files to the ESP32.
 
 You can then upload a game from an SD card via the ESP32 by:
 
