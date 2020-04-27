@@ -52,6 +52,7 @@ module Spectrum (
   wire          n_romCS;
   wire          n_ramCS;
   wire          n_kbdCS;
+  wire          n_joyCS;
   
   reg [2:0]     border_color;
   wire          ula_we = ~cpuAddress[0] & ~n_IORQ & ~n_WR & n_M1;
@@ -272,7 +273,8 @@ module Spectrum (
   // Chip selects
   // ===============================================================
 
-  assign n_kbdCS = (cpuAddress[0] | n_ioRD) == 1'b0 ? 1'b0 : 1'b1;
+  assign n_kbdCS = cpuAddress[7:0] == 8'HFE && n_ioRD == 1'b0 ? 1'b0 : 1'b1;
+  assign n_joyCS = cpuAddress[7:0] == 8'd31 && n_ioRD == 1'b0 ? 1'b0 : 1'b1; // kempston joystick
   assign n_romCS = cpuAddress[15:14] != 0;
   assign n_ramCS = !n_romCS;
 
@@ -281,6 +283,7 @@ module Spectrum (
   // ===============================================================
 
   assign cpuDataIn =  n_kbdCS == 1'b0 ? {3'b111, key_data} :
+                      n_joyCS == 1'b0 ? {2'b0, btn[1], btn[2], btn[3], btn[4], btn[5], btn[6]} :
                       ramOut;
                       //n_romCS == 1'b0 ? romOut :
                       //n_ramCS == 1'b0 ? ramOut :
