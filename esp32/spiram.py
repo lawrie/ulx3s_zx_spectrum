@@ -18,8 +18,8 @@ class spiram:
   def __init__(self):
     self.led = Pin(5, Pin.OUT)
     self.led.off()
-    self.rom="48.rom"
-    #self.rom="/sd/zxspectrum/48.rom"
+    #self.rom="48.rom"
+    self.rom="/sd/zxspectrum/48.rom"
     self.spi_channel = const(2)
     self.init_pinout_sd()
     self.spi_freq = const(4000000)
@@ -184,7 +184,7 @@ class spiram:
     header[22]=x
     if header[12]==255:
       header[12]=1
-    header[12] ^= 7<<1 # FIXME border color
+    #header[12] ^= 7<<1 # FIXME border color
     self.hwspi.write(header) # AF and AF' now POPable
     self.led.off()
 
