@@ -47,7 +47,7 @@ class zx:
     self.irq_handler_ref = self.irq_handler # allocation happens here
     self.spi_request = Pin(0, Pin.IN, Pin.PULL_UP)
     self.spi_request.irq(trigger=Pin.IRQ_FALLING, handler=self.irq_handler_ref)
-    self.rom="/sd/zxspectrum/opense.rom"
+    self.rom="/sd/zxspectrum/roms/opense.rom"
 
 # init file browser
   def init_fb(self):
