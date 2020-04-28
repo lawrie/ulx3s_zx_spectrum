@@ -287,6 +287,6 @@ class osdzx:
   #    self.led.off()
 
 os.mount(SDCard(slot=3),"/sd")
-#ecp5.prog("/sd/zxspectrum/bitstreams/zxspectrum12f.bit")
+ecp5.prog("/sd/zxspectrum/bitstreams/zxspectrum12f.bit")
 gc.collect()
 spectrum=osdzx()
