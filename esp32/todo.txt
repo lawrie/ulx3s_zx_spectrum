@@ -1,0 +1,11 @@
+dynamically load and unload modules to save RAM
+
+https://forum.micropython.org/viewtopic.php?t=2471
+
+import sys
+
+# ....
+
+exec('import modtest', {} ) # Instead of globals, use empty dict, so we don't get a reference to the module
+sys.modules['modtest'].some_func()
+del sys.modules['modtest'] # Remove reference
