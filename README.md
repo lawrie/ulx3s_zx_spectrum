@@ -10,6 +10,8 @@ Games can be loaded in .z80 format from the ESP32.
 
 Does not support models other than the Spectrum 16k and 48k.
 
+The open source ZX Spectrum Basic opense.rom is used. The original ZX Spectrum 48k rom (48.rom) also works and can be downloaded from [here](http://www.shadowmagic.org.uk/spectrum/roms.html).
+
 To build and upload the bit file, do:
 
 
@@ -22,7 +24,7 @@ The default build is for the 85f. For other models, use the DEVICE parameter to 
 
 To set up the ESP32 follow the instructions at https://github.com/emard/esp32ecp5.
 
-Upload the esp32/spiram.py and roms/48.rom files to the ESP32.
+Upload the esp32/spiram.py and roms/opense.rom files to the ESP32.
 
 You can then upload a game from an SD card via the ESP32 by:
 
