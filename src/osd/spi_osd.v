@@ -3,6 +3,8 @@
 
 module spi_osd
 #(
+  parameter [7:0] c_addr_enable  = 8'hFE, // high addr byte of enable byte
+  parameter [7:0] c_addr_display = 8'hFD, // high addr byte of display data, +0x10000 for inverted
   parameter c_start_x   = 64,  // x1  pixel window h-position
   parameter c_start_y   = 48,  // x1  pixel window v-position
   parameter c_chars_x   = 64,  // x8  pixel window h-size
@@ -53,7 +55,7 @@ module spi_osd
     );
     always @(posedge clk_pixel)
     begin
-      if(ram_wr && (ram_addr[31:24] == 8'hFD))
+      if(ram_wr && (ram_addr[31:24] == c_addr_display))
         if(c_inverse)
           tile_map[ram_addr] <= {ram_addr[16],ram_di}; // ASCII to 0xFDx0xxxx normal, 0xFDx1xxxx inverted
         else
@@ -64,7 +66,7 @@ module spi_osd
     reg osd_en = c_init_on;
     always @(posedge clk_pixel)
     begin
-      if(ram_wr && (ram_addr[31:24] == 8'hFE)) // write to 0xFExxxxxx enables/disables OSD
+      if(ram_wr && (ram_addr[31:24] == c_addr_enable)) // write to 0xFExxxxxx enables/disables OSD
         osd_en <= ram_di[0];
     end
 
