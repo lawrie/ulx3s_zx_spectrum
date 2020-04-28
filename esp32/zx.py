@@ -47,7 +47,6 @@ class zx:
     self.irq_handler_ref = self.irq_handler # allocation happens here
     self.spi_request = Pin(0, Pin.IN, Pin.PULL_UP)
     self.spi_request.irq(trigger=Pin.IRQ_FALLING, handler=self.irq_handler_ref)
-    self.rom="/sd/zxspectrum/roms/opense.rom"
 
   def init_spi(self):
     self.hwspi=SPI(self.spi_channel, baudrate=self.spi_freq, polarity=0, phase=0, bits=8, firstbit=SPI.MSB, sck=Pin(self.gpio_sck), mosi=Pin(self.gpio_mosi), miso=Pin(self.gpio_miso))
