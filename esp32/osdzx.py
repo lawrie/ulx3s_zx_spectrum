@@ -30,7 +30,7 @@ class osdzx:
     self.exp_names = " KMGTE"
     self.mark = bytearray([32,16,42]) # space, right triangle, asterisk
     self.read_dir()
-    #self.spi_read_irq = bytearray([1,0xF1,0,0,0,0,0])
+    self.spi_read_irq = bytearray([1,0xF1,0,0,0,0,0])
     self.spi_read_btn = bytearray([1,0xFB,0,0,0,0,0])
     self.spi_result = bytearray(7)
     self.spi_enable_osd = bytearray([0,0xFE,0,0,0,1])
@@ -69,14 +69,14 @@ class osdzx:
   def irq_handler(self, pin):
     p8result = ptr8(addressof(self.spi_result))
     self.led.on()
-    self.spi.write_readinto(self.spi_read_btn, self.spi_result)
+    self.spi.write_readinto(self.spi_read_irq, self.spi_result)
     self.led.off()
     btn_irq = p8result[6]
     if btn_irq&0x80: # btn event IRQ flag
-      #self.led.on()
-      #self.spi.write_readinto(self.spi_read_btn, self.spi_result)
-      #self.led.off()
-      btn = btn_irq&0x7F
+      self.led.on()
+      self.spi.write_readinto(self.spi_read_btn, self.spi_result)
+      self.led.off()
+      btn = p8result[6]
       p8enable = ptr8(addressof(self.enable))
       if p8enable[0]&2: # wait to release all BTNs
         if btn==1:
@@ -161,10 +161,19 @@ class osdzx:
       if filename.endswith(".z80"):
         self.enable[0]=0
         self.osd_enable(0)
-        #self.loadz80(filename)
         import ld_zxspectrum
         s=ld_zxspectrum.ld_zxspectrum(self.spi,self.led)
         s.loadz80(filename)
+        del s
+        gc.collect()
+      if filename.endswith(".nes"):
+        self.enable[0]=0
+        self.osd_enable(0)
+        import ld_zxspectrum
+        s=ld_zxspectrum.ld_zxspectrum(self.spi,self.led)
+        s.ctrl(1)
+        s.ctrl(0)
+        s.load_stream(open(filename,"rb"),addr=0,maxlen=0x100000)
         del s
         gc.collect()
 
@@ -278,6 +287,6 @@ class osdzx:
   #    self.led.off()
 
 os.mount(SDCard(slot=3),"/sd")
-ecp5.prog("/sd/zxspectrum/bitstreams/zxspectrum12f.bit")
+#ecp5.prog("/sd/zxspectrum/bitstreams/zxspectrum12f.bit")
 gc.collect()
 spectrum=osdzx()
