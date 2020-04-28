@@ -11,21 +11,21 @@
 # SPI_write(buffer)
 # FPGA SPI slave will accept image and start it
 
-from machine import SPI, Pin, SDCard, Timer
-from micropython import const, alloc_emergency_exception_buf
-from uctypes import addressof
+#from machine import SPI, Pin, SDCard, Timer
+#from micropython import const, alloc_emergency_exception_buf
+#from uctypes import addressof
 from struct import unpack
 #from time import sleep_ms
-import os
+#import os
 
-import ecp5
-import gc
+#import ecp5
+#import gc
 
 class ld_zxspectrum:
   def __init__(self,spi,cs):
-    self.hwspi=spi
-    self.led=cs
-    self.led.off()
+    self.spi=spi
+    self.cs=cs
+    self.cs.off()
     self.rom="/sd/zxspectrum/roms/opense.rom"
 
   # LOAD/SAVE and CPU control
@@ -34,34 +34,34 @@ class ld_zxspectrum:
   def load_stream(self, filedata, addr=0, maxlen=0x10000, blocksize=1024):
     block = bytearray(blocksize)
     # Request load
-    self.led.on()
-    self.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
+    self.cs.on()
+    self.spi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
     bytes_loaded = 0
     while bytes_loaded < maxlen:
       if filedata.readinto(block):
-        self.hwspi.write(block)
+        self.spi.write(block)
         bytes_loaded += blocksize
       else:
         break
-    self.led.off()
+    self.cs.off()
 
   # read from SPI RAM -> write to file
   def save_stream(self, filedata, addr=0, length=1024, blocksize=1024):
     bytes_saved = 0
     block = bytearray(blocksize)
     # Request save
-    self.led.on()
-    self.hwspi.write(bytearray([1,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0]))
+    self.cs.on()
+    self.spi.write(bytearray([1,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0]))
     while bytes_saved < length:
-      self.hwspi.readinto(block)
+      self.spi.readinto(block)
       filedata.write(block)
       bytes_saved += len(block)
-    self.led.off()
+    self.cs.off()
 
   def ctrl(self,i):
-    self.led.on()
-    self.hwspi.write(bytearray([0, 0xFF, 0xFF, 0xFF, 0xFF, i]))
-    self.led.off()
+    self.cs.on()
+    self.spi.write(bytearray([0, 0xFF, 0xFF, 0xFF, 0xFF, i]))
+    self.cs.off()
 
   def cpu_halt(self):
     self.ctrl(2)
@@ -82,13 +82,13 @@ class ld_zxspectrum:
           if b[0]==escbyte[0]:
             nexts=1
           else:
-            self.hwspi.write(b)
+            self.spi.write(b)
         if s==1:
           if b[0]==escbyte[0]:
             nexts=2
           else:
-            self.hwspi.write(escbyte)
-            self.hwspi.write(b)
+            self.spi.write(escbyte)
+            self.spi.write(b)
             nexts=0
         if s==2:
           repeat=b[0]
@@ -97,7 +97,7 @@ class ld_zxspectrum:
             break
           nexts=3
         if s==3:
-          self.hwspi.read(repeat,b[0])
+          self.spi.read(repeat,b[0])
           nexts=0
         s=nexts
         bytes_loaded += 1
@@ -106,10 +106,10 @@ class ld_zxspectrum:
     print("bytes loaded %d" % bytes_loaded)
 
   def load_z80_v1_compressed_block(self, filedata):
-    self.led.on()
-    self.hwspi.write(bytearray([0,0,0,0x40,0])) # from 0x4000
+    self.cs.on()
+    self.spi.write(bytearray([0,0,0,0x40,0])) # from 0x4000
     self.load_z80_compressed_stream(filedata)
-    self.led.off()
+    self.cs.off()
 
   def load_z80_v23_block(self, filedata):
     header = bytearray(3)
@@ -137,10 +137,10 @@ class ld_zxspectrum:
     #print("addr=%04X compress=%d" % (addr,compress))
     if compress:
       # Request load
-      self.led.on()
-      self.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
+      self.cs.on()
+      self.spi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
       self.load_z80_compressed_stream(filedata,length)
-      self.led.off()
+      self.cs.off()
     else:
       print("uncompressed v2/v3 may need FIXME")
       self.load_stream(filedata,addr,16384)
@@ -151,29 +151,29 @@ class ld_zxspectrum:
     # with restore code and data from header
     code_addr = 0x4C2
     header_addr = 0x500
-    self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,0,0, 0xF3, 0xAF, 0x11, 0xFF, 0xFF, 0xC3, code_addr&0xFF, (code_addr>>8)&0xFF])) # overwrite start of ROM to JP 0x04C2
-    self.led.off()
-    self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,(code_addr>>8)&0xFF,code_addr&0xFF])) # overwrite 0x04C2
+    self.cs.on()
+    self.spi.write(bytearray([0, 0,0,0,0, 0xF3, 0xAF, 0x11, 0xFF, 0xFF, 0xC3, code_addr&0xFF, (code_addr>>8)&0xFF])) # overwrite start of ROM to JP 0x04C2
+    self.cs.off()
+    self.cs.on()
+    self.spi.write(bytearray([0, 0,0,(code_addr>>8)&0xFF,code_addr&0xFF])) # overwrite 0x04C2
     # Z80 code that POPs REGs from header as stack data at 0x500
     # z80asm restore.z80asm; hexdump -v -e '/1 "0x%02X,"' a.bin
     # restores border color, registers I, AFBCDEHL' and AFBCDEHL
-    self.hwspi.write(bytearray([0x31,(header_addr+9)&0xFF,((header_addr+9)>>8)&0xFF,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0xD1,0xD9,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x21,0xE5,0xFF,0x39,0xF9,0xF1,0xC1,0xE1]));
-    self.hwspi.write(bytearray([0x31])) # LD SP, ...
-    self.hwspi.write(header[8:10])
-    self.hwspi.write(bytearray([0xED])) # IM ...
+    self.spi.write(bytearray([0x31,(header_addr+9)&0xFF,((header_addr+9)>>8)&0xFF,0xF1,0xED,0x47,0xF1,0x1F,0xD3,0xFE,0xD1,0xD9,0xC1,0xD1,0xE1,0xD9,0xF1,0x08,0xFD,0xE1,0xDD,0xE1,0x21,0xE5,0xFF,0x39,0xF9,0xF1,0xC1,0xE1]));
+    self.spi.write(bytearray([0x31])) # LD SP, ...
+    self.spi.write(header[8:10])
+    self.spi.write(bytearray([0xED])) # IM ...
     imarg = bytearray([0x46,0x56,0x5E,0x5E])
-    self.hwspi.write(bytearray([imarg[header[29]&3]])) # IM mode
+    self.spi.write(bytearray([imarg[header[29]&3]])) # IM mode
     if header[27]:
-      self.hwspi.write(bytearray([0xFB])) # EI
+      self.spi.write(bytearray([0xFB])) # EI
     header[6]=pc&0xFF
     header[7]=(pc>>8)&0xFF
-    self.hwspi.write(bytearray([0xC3])) # JP ...
-    self.hwspi.write(header[6:8]) # PC address of final JP
-    self.led.off()
-    self.led.on()
-    self.hwspi.write(bytearray([0, 0,0,(header_addr>>8)&0xFF,header_addr&0xFF])) # overwrite 0x0500 with header
+    self.spi.write(bytearray([0xC3])) # JP ...
+    self.spi.write(header[6:8]) # PC address of final JP
+    self.cs.off()
+    self.cs.on()
+    self.spi.write(bytearray([0, 0,0,(header_addr>>8)&0xFF,header_addr&0xFF])) # overwrite 0x0500 with header
     # header fix: exchange A and F, A' and F' to become POPable
     x=header[0]
     header[0]=header[1]
@@ -184,8 +184,8 @@ class ld_zxspectrum:
     if header[12]==255:
       header[12]=1
     #header[12] ^= 7<<1 # FIXME border color
-    self.hwspi.write(header) # AF and AF' now POPable
-    self.led.off()
+    self.spi.write(header) # AF and AF' now POPable
+    self.cs.off()
 
   def loadz80(self,filename):
     z=open(filename,"rb")
@@ -232,49 +232,11 @@ class ld_zxspectrum:
   # read from file -> write to SPI RAM
   def load_stream(self, filedata, addr=0, blocksize=1024):
     block = bytearray(blocksize)
-    self.led.on()
-    self.hwspi.write(bytearray([0x00, (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
+    self.cs.on()
+    self.spi.write(bytearray([0x00, (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
     while True:
       if filedata.readinto(block):
-        self.hwspi.write(block)
+        self.spi.write(block)
       else:
         break
-    self.led.off()
-
-def loadz80(filename):
-  s=ld_zxspectrum()
-  s.loadz80(filename)
-
-def load(filename, addr=0x4000):
-  s=ld_zxspectrum()
-  s.cpu_halt()
-  s.load_stream(open(filename, "rb"), addr=addr)
-  s.cpu_continue()
-
-def save(filename, addr=0x4000, length=0xC000):
-  s=ld_zxspectrum()
-  f=open(filename, "wb")
-  s.cpu_halt()
-  s.save_stream(f, addr, length)
-  s.cpu_continue()
-  f.close()
-
-def peek(addr,length=1):
-  s=ld_zxspectrum()
-  s.cpu_halt()
-  s.led.on()
-  s.hwspi.write(bytearray([1,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF, 0]))
-  b=bytearray(length)
-  s.hwspi.readinto(b)
-  s.led.off()
-  s.cpu_continue()
-  return b
-
-def poke(addr,data):
-  s=ld_zxspectrum()
-  s.cpu_halt()
-  s.led.on()
-  s.hwspi.write(bytearray([0,(addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
-  s.hwspi.write(data)
-  s.led.off()
-  s.cpu_continue()
+    self.cs.off()
