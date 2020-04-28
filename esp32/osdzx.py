@@ -109,6 +109,7 @@ class osdzx:
       self.timer_slow=0
       self.timer.init(mode=Timer.PERIODIC, period=30, callback=self.autorepeat)
     self.move_dir_cursor(self.autorepeat_direction)
+    self.irq_handler(0) # catch stale IRQ
 
   def select_entry(self):
     if self.direntries[self.fb_cursor][1]: # is it directory
