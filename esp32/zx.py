@@ -15,6 +15,7 @@ from machine import SPI, Pin, SDCard, Timer
 from micropython import const, alloc_emergency_exception_buf
 from uctypes import addressof
 from struct import unpack
+#from time import sleep_ms
 import os
 
 import ecp5
@@ -34,12 +35,11 @@ class zx:
     self.spi_result = bytearray(7)
     self.spi_enable_osd = bytearray([0,0xFE,0,0,0,1])
     self.spi_write_osd = bytearray([0,0xFD,0,0,0])
-    self.led = Pin(5, Pin.OUT)
-    self.led.off()
     self.spi_channel = const(2)
-    self.init_pinout_sd()
     self.spi_freq = const(4000000)
-    self.hwspi=SPI(self.spi_channel, baudrate=self.spi_freq, polarity=0, phase=0, bits=8, firstbit=SPI.MSB, sck=Pin(self.gpio_sck), mosi=Pin(self.gpio_mosi), miso=Pin(self.gpio_miso))
+    self.init_pinout_sd()
+    #self.hwspi=SPI(self.spi_channel, baudrate=self.spi_freq, polarity=0, phase=0, bits=8, firstbit=SPI.MSB, sck=Pin(self.gpio_sck), mosi=Pin(self.gpio_mosi), miso=Pin(self.gpio_miso))
+    self.init_spi()
     alloc_emergency_exception_buf(100)
     self.enable = bytearray(1)
     self.timer = Timer(3)
@@ -48,6 +48,11 @@ class zx:
     self.spi_request = Pin(0, Pin.IN, Pin.PULL_UP)
     self.spi_request.irq(trigger=Pin.IRQ_FALLING, handler=self.irq_handler_ref)
     self.rom="/sd/zxspectrum/roms/opense.rom"
+
+  def init_spi(self):
+    self.hwspi=SPI(self.spi_channel, baudrate=self.spi_freq, polarity=0, phase=0, bits=8, firstbit=SPI.MSB, sck=Pin(self.gpio_sck), mosi=Pin(self.gpio_mosi), miso=Pin(self.gpio_miso))
+    self.led = Pin(5, Pin.OUT)
+    self.led.off()
 
 # init file browser
   def init_fb(self):
@@ -145,9 +150,19 @@ class zx:
     self.show_dir_line(oldselected)
     self.show_dir_line(self.fb_cursor - self.fb_topitem)
     if filename:
-      self.loadz80(filename)
-      self.osd_enable(0)
-      self.enable[0]=0
+      if filename.endswith(".bit"):
+        #import ecp5
+        self.enable[0]=0
+        self.osd_enable(0)
+        ecp5.prog(filename)
+        self.init_spi() # because of ecp5.prog() spi.deinit()
+        self.irq_handler(0) # handle stuck IRQ
+      if filename.endswith(".z80"):
+        #import ld_zxspectrum
+        #ld_zxspectrum.loadz80(filename)
+        self.enable[0]=0
+        self.osd_enable(0)
+        self.loadz80(filename)
 
   @micropython.viper
   def osd_enable(self, en:int):
