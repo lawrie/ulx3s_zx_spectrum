@@ -167,15 +167,15 @@ class osdzx:
         del s
         gc.collect()
       if filename.endswith(".nes"):
-        self.enable[0]=0
-        self.osd_enable(0)
         import ld_zxspectrum
         s=ld_zxspectrum.ld_zxspectrum(self.spi,self.led)
         s.ctrl(1)
         s.ctrl(0)
-        s.load_stream(open(filename,"rb"),addr=0,maxlen=0x100000)
+        s.load_stream(open(filename,"rb"),addr=0,maxlen=0x101000)
         del s
         gc.collect()
+        self.enable[0]=0
+        self.osd_enable(0)
 
   @micropython.viper
   def osd_enable(self, en:int):
