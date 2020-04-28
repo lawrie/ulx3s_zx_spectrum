@@ -13,7 +13,8 @@
 
 module spi_ram_btn
 #(
-  parameter [7:0] c_addr_btn = 8'hFB, // high addr byte of IRQ flag and BTNs
+  parameter [7:0] c_addr_btn = 8'hFB, // high addr byte of BTNs
+  parameter [7:0] c_addr_irq = 8'hF1, // high addr byte of IRQ flag
   parameter c_debounce_bits = 20, // more -> slower BTNs
   parameter c_addr_bits = 32, // don't touch
   parameter c_sclk_capable_pin = 0 //, // 0-sclk is generic pin, 1-sclk is clock capable pin
@@ -40,7 +41,7 @@ module spi_ram_btn
   always @(posedge clk)
   begin
     R_spi_rd <= rd;
-    if(rd == 1'b0 && R_spi_rd == 1'b1 && addr[c_addr_bits-1:c_addr_bits-8] == c_addr_btn)
+    if(rd == 1'b0 && R_spi_rd == 1'b1 && addr[c_addr_bits-1:c_addr_bits-8] == c_addr_irq)
       R_btn_irq <= 1'b0;
     else // BTN state is read from 0xFBxxxxxx
     begin
@@ -57,7 +58,9 @@ module spi_ram_btn
     end
   end
 
-  wire [7:0] mux_data_in = addr[c_addr_bits-1:c_addr_bits-8] == c_addr_btn ? {R_btn_irq,R_btn} : data_in;
+  wire [7:0] mux_data_in = addr[c_addr_bits-1:c_addr_bits-8] == c_addr_irq ? {R_btn_irq,7'b0}
+                         : addr[c_addr_bits-1:c_addr_bits-8] == c_addr_btn ? {1'b0,R_btn}
+                         : data_in;
   assign irq = R_btn_irq;
 
   spirw_slave_v
