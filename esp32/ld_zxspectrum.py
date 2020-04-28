@@ -228,15 +228,3 @@ class ld_zxspectrum:
     self.load_stream(open(self.rom, "rb"), addr=0)
     self.cpu_continue() # release reset
 
-
-  # read from file -> write to SPI RAM
-  def load_stream(self, filedata, addr=0, blocksize=1024):
-    block = bytearray(blocksize)
-    self.cs.on()
-    self.spi.write(bytearray([0x00, (addr >> 24) & 0xFF, (addr >> 16) & 0xFF, (addr >> 8) & 0xFF, addr & 0xFF]))
-    while True:
-      if filedata.readinto(block):
-        self.spi.write(block)
-      else:
-        break
-    self.cs.off()
