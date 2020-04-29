@@ -1,14 +1,17 @@
 `default_nettype none
-module Spectrum (
+module spectrum
+#(
+  parameter C_usb_speed=0,  // 0:6 MHz USB1.0, 1:48 MHz USB1.1, -1: USB disabled,
+  // xbox360 : C_report_bytes=20, C_report_bytes_strict=1
+  // darfon  : C_report_bytes= 8, C_report_bytes_strict=1
+  parameter C_report_bytes=8, // 8:usual joystick, 20:xbox360
+  parameter C_report_bytes_strict=1, // 0:when report length is variable/unknown
+  parameter C_autofire_hz=10  // joystick trigger and bumper
+)
+(
   input         clk25_mhz,
   // Buttons
   input [6:0]   btn,
-  // VGA
-  output [3:0]  red,
-  output [3:0]  green,
-  output [3:0]  blue,
-  output        hSync,
-  output        vSync,
   // HDMI
   output [3:0]  gpdi_dp,
   output [3:0]  gpdi_dn,
@@ -32,10 +35,29 @@ module Spectrum (
   inout  sd_clk, sd_cmd,
   inout   [3:0] sd_d,
 
+  inout  [27:0] gp,gn,
   // Leds
-  output [7:0]  leds,
-  output reg [15:0] diag
+  output [7:0]  leds
 );
+
+  // VGA (should be assigned to some gp/gn outputs
+  wire   [3:0]  red;
+  wire   [3:0]  green;
+  wire   [3:0]  blue;
+  wire          hSync;
+  wire          vSync;
+  
+  generate
+    genvar i;
+    for(i = 0; i < 4; i = i+1)
+    begin
+      assign gp[24-i-14] = red[i];
+      assign gn[17-i-14] = green[i];
+      assign gn[24-i-14] = blue[i];
+    end
+  endgenerate
+  assign gp[16-14] = vSync;
+  assign gp[17-14] = hSync;
 
   wire          n_WR;
   wire          n_RD;
@@ -80,6 +102,20 @@ module Spectrum (
     .clkout2(cpuClock)
   );
 
+  wire clk_125MHz, clk_25MHz; // video
+  wire clk_48MHz, clk_6MHz; // usb
+  wire dvi_clock_locked;
+  clk_25_125_48_6_25
+  clk_dvi_usb_inst
+  (
+    .clk25_i(clk25_mhz),
+    .clk125_o(clk_125MHz),
+    .clk48_o(clk_48MHz),
+    .clk6_o(clk_6MHz),
+    .clk25_o(clk_25MHz),
+    .locked(dvi_clock_locked)
+  );
+
   // ===============================================================
   // Reset generation
   // ===============================================================
@@ -120,6 +156,62 @@ module Spectrum (
   );
 
   // ===============================================================
+  // USB joystick at US4 port
+  // ===============================================================
+
+  wire clk_usb;  // 6 MHz USB1.0 or 48 MHz USB1.1
+  generate if (C_usb_speed == 0) begin: G_low_speed
+      assign clk_usb = clk_6MHz;
+  end
+  endgenerate
+  generate if (C_usb_speed == 1) begin: G_full_speed
+      assign clk_usb = clk_48MHz;
+  end
+  endgenerate
+
+  assign gp[22] = 1'b0; // pull down
+  assign gn[22] = 1'b0; // pull down
+  wire [C_report_bytes*8-1:0] S_report;
+  wire S_report_valid;
+  wire [7:0] usb_buttons;
+  generate if (C_usb_speed >= 0) begin
+  usbh_host_hid
+  #(
+    .C_usb_speed(C_usb_speed), // '0':Low-speed '1':Full-speed
+    .C_report_length(C_report_bytes),
+    .C_report_length_strict(C_report_bytes_strict)
+  )
+  us4_hid_host_inst
+  (
+    .clk(clk_usb), // 6 MHz for low-speed USB1.0 device or 48 MHz for full-speed USB1.1 device
+    .bus_reset(~dvi_clock_locked),
+    .led(), // debug output
+    .usb_dif(gp[20]),
+    .usb_dp(gp[24]),
+    .usb_dn(gn[24]),
+    .hid_report(S_report),
+    .hid_valid(S_report_valid)
+  );
+  end
+  endgenerate
+
+  usbh_report_decoder
+  #(
+    .c_autofire_hz(C_autofire_hz)
+  )
+  usbh_report_decoder_inst
+  (
+    .i_clk(clk_usb),
+    .i_report(S_report),
+    .i_report_valid(S_report_valid),
+    .o_btn(usb_buttons)
+  );
+
+  wire [6:0] R_btn_joy;
+  always @(posedge cpuClock)
+    R_btn_joy <= btn | { usb_buttons[7],usb_buttons[6],usb_buttons[5],usb_buttons[4],usb_buttons[0],usb_buttons[1],1'b0};
+
+  // ===============================================================
   // SPI Slave
   // ===============================================================
  
@@ -144,7 +236,7 @@ module Spectrum (
     .sclk(wifi_gpio16),
     .mosi(sd_d[1]), // wifi_gpio4
     .miso(sd_d[2]), // wifi_gpio12
-    .btn(btn),
+    .btn(R_btn_joy),
     .irq(irq),
     .wr(spi_ram_wr),
     .rd(spi_ram_rd),
@@ -315,7 +407,7 @@ module Spectrum (
   // ===============================================================
 
   assign cpuDataIn =  n_kbdCS == 1'b0 ? {3'b111, key_data} :
-                      n_joyCS == 1'b0 ? {2'b0, btn[2], btn[1], btn[3], btn[4], btn[5], btn[6]} : // x x (x or FIRE2 on modified hardware) FIRE1 UP DOWN LEFT RIGHT
+                      n_joyCS == 1'b0 ? {2'b0, R_btn_joy[2], R_btn_joy[1], R_btn_joy[3], R_btn_joy[4], R_btn_joy[5], R_btn_joy[6]} : // x x (x or FIRE2 on modified hardware) FIRE1 UP DOWN LEFT RIGHT
                       ramOut;
 
   // ===============================================================
@@ -338,9 +430,4 @@ module Spectrum (
 
   assign leds = {border_color, irq , led4, led3, led2, led1};
   
-  always @(posedge clk) begin
-    diag <= attrOut;
-  end
-   
 endmodule
-
