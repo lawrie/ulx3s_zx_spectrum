@@ -150,17 +150,25 @@ class osdzx:
     self.show_dir_line(self.fb_cursor - self.fb_topitem)
     if filename:
       if filename.endswith(".bit"):
+        self.spi_request.irq(handler=None)
+        self.timer.deinit()
         self.enable[0]=0
         self.osd_enable(0)
         self.spi.deinit()
-        ecp5.prog(filename)
-        #memory saving, but crashes ESP32 after 3 uploads
-        #import sys
-        #exec('import ecp5',{})
-        #sys.modules['ecp5'].prog(filename)
-        #del sys.modules['ecp5']
+        tap=ecp5.ecp5()
+        tap.prog_stream(open(filename,"rb"),blocksize=1024)
+        if filename.endswith("_sd.bit"):
+          os.umount("/sd")
+          for i in bytearray([2,4,12,13,14,15]):
+            p=Pin(i,Pin.IN)
+            a=p.value()
+            del p,a
+        result=tap.prog_close()
+        del tap
         gc.collect()
+        #os.mount(SDCard(slot=3),"/sd") # BUG, won't work
         self.init_spi() # because of ecp5.prog() spi.deinit()
+        self.spi_request.irq(trigger=Pin.IRQ_FALLING, handler=self.irq_handler_ref)
         self.irq_handler(0) # handle stuck IRQ
       if filename.endswith(".z80"):
         self.enable[0]=0
