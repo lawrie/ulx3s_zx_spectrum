@@ -26,7 +26,7 @@ class ld_zxspectrum:
     self.spi=spi
     self.cs=cs
     self.cs.off()
-    self.rom="/sd/zxspectrum/roms/opense.rom"
+    #self.rom="/sd/zxspectrum/roms/opense.rom"
 
   # LOAD/SAVE and CPU control
 
@@ -115,16 +115,21 @@ class ld_zxspectrum:
     header = bytearray(3)
     if filedata.readinto(header):
       length,page = unpack("<HB",header)
-      print("load z80 block: length=%d, page=%d" % (length,page))
     else:
       return False
     addr = -1
+    if page==0:
+      addr=0
+      self.rom_loaded=1
     if page==4:
       addr=0x8000
+      self.ram_loaded=1
     if page==5:
       addr=0xC000
+      self.ram_loaded=1
     if page==8:
       addr=0x4000
+      self.ram_loaded=1
     if addr < 0:
       print("unsupported page ignored")
       filedata.seek(length,1)
@@ -134,6 +139,7 @@ class ld_zxspectrum:
       length=0x4000
     else:
       compress=1
+    print("load z80 block: length=%d, page=%d, compress=%d" % (length,page,compress))
     #print("addr=%04X compress=%d" % (addr,compress))
     if compress:
       # Request load
@@ -145,7 +151,29 @@ class ld_zxspectrum:
       print("uncompressed v2/v3 may need FIXME")
       self.load_stream(filedata,addr,16384)
     return True
-  
+
+  def store_rom(self):
+    self.stored_code=bytearray(self.code_length)
+    self.cs.on()
+    self.spi.write(bytearray([1, 0,0,(self.code_addr>>8)&0xFF,self.code_addr&0xFF, 0]))
+    self.spi.readinto(self.stored_code)
+    self.cs.off()
+    self.stored_vector=bytearray(self.vector_length)
+    self.cs.on()
+    self.spi.write(bytearray([1, 0,0,(self.vector_addr>>8)&0xFF,self.vector_addr&0xFF, 0]))
+    self.spi.readinto(self.stored_vector)
+    self.cs.off()
+
+  def restore_rom(self):
+    self.cs.on()
+    self.spi.write(bytearray([0, 0,0,(self.code_addr>>8)&0xFF,self.code_addr&0xFF]))
+    self.spi.write(self.stored_code)
+    self.cs.off()
+    self.cs.on()
+    self.spi.write(bytearray([0, 0,0,(self.vector_addr>>8)&0xFF,self.vector_addr&0xFF]))
+    self.spi.write(self.stored_vector)
+    self.cs.off()
+
   def patch_rom(self,pc,header):
     # overwrite tape saving code in original ROM
     # with restore code and data from header
@@ -188,15 +216,20 @@ class ld_zxspectrum:
     self.cs.off()
 
   def loadz80(self,filename):
+    self.code_addr=0x4c2
+    self.code_length=128
+    self.vector_addr=0
+    self.vector_length=16
+    self.rom_loaded=0
+    self.ram_loaded=0
     z=open(filename,"rb")
     header1 = bytearray(30)
     z.readinto(header1)
     pc=unpack("<H",header1[6:8])[0]
     self.cpu_halt()
-    self.load_stream(open(self.rom, "rb"), addr=0)
+    #self.load_stream(open(self.rom, "rb"), addr=0)
     if pc: # V1 format
       print("Z80 v1")
-      self.patch_rom(pc,header1)
       if header1[12] & 32:
         self.load_z80_v1_compressed_block(z)
       else:
@@ -216,15 +249,19 @@ class ld_zxspectrum:
       header2 = bytearray(length2)
       z.readinto(header2)
       pc=unpack("<H",header2[0:2])[0]
-      self.patch_rom(pc,header1)
       while self.load_z80_v23_block(z):
         pass
     z.close()
+    # if only ROM is loaded, don't restore
+    if self.ram_loaded or not self.rom_loaded:
+      self.store_rom()
+      self.patch_rom(pc,header1)
     self.ctrl(3) # reset and halt
     self.ctrl(1) # only reset
     self.cpu_continue()
-    # restore original ROM after image starts
-    self.cpu_halt()
-    self.load_stream(open(self.rom, "rb"), addr=0)
-    self.cpu_continue() # release reset
+    if self.ram_loaded or not self.rom_loaded:
+      self.cpu_halt()
+      self.restore_rom()
+      #self.load_stream(open(self.rom, "rb"), addr=0)
+      self.cpu_continue() # release reset
 
